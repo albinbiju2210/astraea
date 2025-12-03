@@ -1,6 +1,4 @@
 <?php
-// index.php - Login page with Register / Forgot Password options
-// TEMP: show errors while developing. Remove in production.
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -40,8 +38,8 @@ $msg   = $_GET['msg'] ?? '';
 <body>
 
   <div class="card" role="main" aria-labelledby="login-title">
-    <h1 id="login-title">Astraea Login</h1>
-    <div class="lead">Welcome back — please sign in to continue</div>
+    <h1 id="login-title">Astraea</h1>
+    <div class="lead">Automated Parking made easy - Welcome back</div>
 
     <?php if ($msg): ?>
       <div class="msg"><?php echo htmlspecialchars($msg); ?></div>
@@ -57,23 +55,23 @@ $msg   = $_GET['msg'] ?? '';
       <button class="btn" type="submit">Login</button>
     </form>
 
-    <div class="helper">
-      <div class="links" style="margin-top:12px;">
-        <div><a class="link" href="register.php">Create account</a></div>
-        <div><a class="link" href="forgot_password.php">Forgot password?</a></div>
-      </div>
+  <div class="helper">
 
-      <div style="margin-top:14px;">
-        <!-- Optional quick actions -->
-        <form action="login_process.php" method="post" style="display:inline">
-          <!-- Guest login can be implemented server-side to map to a guest user -->
-          <input type="hidden" name="email" value="guest@example.com">
-          <input type="hidden" name="password" value="guest">
-          <button type="submit" class="small-btn">Login as Guest</button>
-        </form>
+  <!-- ⭐ Admin Login Button -->
+  <div style="margin-top:14px; text-align:center;">
+    <a href="admin_login.php" class="small-btn" 
+       style="text-decoration:none; padding:8px 16px; display:inline-block;">
+      Admin Login
+    </a>
+  </div>
 
-        &nbsp;
-        <a class="small-btn" href="index.php" style="text-decoration:none">Refresh</a>
+  <div class="links" style="margin-top:12px;">
+    <div><a class="link" href="register.php">Create account</a></div>
+    <div><a class="link" href="forgot_password.php">Forgot password?</a></div>
+  </div>
+
+</div>
+
       </div>
     </div>
   </div>
