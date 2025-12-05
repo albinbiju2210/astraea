@@ -3,7 +3,9 @@
  * Handles theme switching and persistence via Toggle Switch.
  */
 
-(function () {
+
+// Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', () => {
     const toggle = document.getElementById('theme-toggle');
 
     // 1. Check for saved theme preference
@@ -31,4 +33,22 @@
             }
         });
     }
-})();
+});
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form[action="admin_action.php"]').forEach(function (f) {
+        f.addEventListener('submit', function (e) {
+            const action = f.querySelector('input[name="action"]').value;
+            if (action === 'assign_next' && !confirm('Assign next queued booking to available slot?')) {
+                e.preventDefault();
+            }
+            if (action === 'toggle_maintenance' && !confirm('Change maintenance status for this slot?')) {
+                e.preventDefault();
+            }
+            if (action === 'cancel_booking' && !confirm('Cancel this booking?')) {
+                e.preventDefault();
+            }
+        });
+    });
+});
