@@ -16,8 +16,9 @@ $jsUrl  = 'js/theme.js';
 <body>
 
 <div class="theme-bar">
-    <button class="theme-btn" data-theme="light" title="Light theme">L</button>
-    <button class="theme-btn" data-theme="blue" title="Blue theme">B</button>
-    <button class="theme-btn" data-theme="dark" title="Dark theme">D</button>
+    <label class="switch" title="Toggle Dark Mode">
+        <input type="checkbox" id="theme-toggle">
+        <span class="slider round"></span>
+    </label>
 </div>
 

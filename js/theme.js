@@ -1,44 +1,34 @@
 /**
  * theme.js
- * Handles theme switching and persistence.
+ * Handles theme switching and persistence via Toggle Switch.
  */
 
 (function () {
+    const toggle = document.getElementById('theme-toggle');
+
     // 1. Check for saved theme preference
     const savedTheme = localStorage.getItem('astraea-theme');
-    if (savedTheme) {
-        document.body.classList.add(`theme-${savedTheme}`);
+
+    // Apply saved theme
+    if (savedTheme === 'dark') {
+        document.body.classList.add('theme-dark');
+        if (toggle) toggle.checked = true;
     } else {
-        // Optional user system preference check could go here
+        // Default is light
+        document.body.classList.remove('theme-dark');
+        if (toggle) toggle.checked = false;
     }
 
-    // 2. Event Listener for theme buttons
-    // Using delegation or just selecting all buttons
-    // Since the buttons are in the header, they should be available when DOM is ready.
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const buttons = document.querySelectorAll('.theme-btn');
-
-        buttons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const theme = btn.getAttribute('data-theme');
-
-                // Clear existing themes (assuming theme-light, theme-dark, theme-blue)
-                document.body.classList.remove('theme-light', 'theme-dark', 'theme-blue');
-
-                if (theme !== 'light') {
-                    // "light" is default (no class), so only add if not light
-                    // But wait, css style.css says:
-                    // body.theme-dark { ... }
-                    // body.theme-blue { ... }
-                    // Default is light vars in root.
-                    // So we modify this slightly.
-                    document.body.classList.add(`theme-${theme}`);
-                }
-
-                // Save preference
-                localStorage.setItem('astraea-theme', theme);
-            });
+    // 2. Event Listener for toggle
+    if (toggle) {
+        toggle.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                document.body.classList.add('theme-dark');
+                localStorage.setItem('astraea-theme', 'dark');
+            } else {
+                document.body.classList.remove('theme-dark');
+                localStorage.setItem('astraea-theme', 'light');
+            }
         });
-    });
+    }
 })();
