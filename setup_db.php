@@ -2,6 +2,17 @@
 require 'db.php';
 
 try {
+    // 0. Users Table (Must be first for FKs)
+    $pdo->exec("CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(100) NOT NULL UNIQUE,
+        phone VARCHAR(20) NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        is_admin TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
     // 1. Parking Lots Table
     $pdo->exec("CREATE TABLE IF NOT EXISTS parking_lots (
         id INT AUTO_INCREMENT PRIMARY KEY,

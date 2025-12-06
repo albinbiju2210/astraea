@@ -110,11 +110,11 @@ include 'includes/header.php';
                             <td style="padding:10px;"><strong><?php echo htmlspecialchars($s['slot_number']); ?></strong></td>
                             <td style="padding:10px;">
                                 <?php if ($s['is_maintenance']): ?>
-                                    <span style="color:orange; font-weight:bold;">Maintenance</span>
+                                    <span style="color:#ffd43b; font-weight:bold; letter-spacing:0.5px;">MAINTENANCE</span>
                                 <?php elseif ($s['is_occupied']): ?>
-                                    <span style="color:red;">Occupied</span>
+                                    <span style="color:#ff6b6b;">Occupied</span>
                                 <?php else: ?>
-                                    <span style="color:green;">Available</span>
+                                    <span style="color:#69db7c;">Available</span>
                                 <?php endif; ?>
                             </td>
                             <td style="padding:10px; text-align:right; display:flex; gap:5px; justify-content:flex-end;">

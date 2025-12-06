@@ -1,168 +1,302 @@
 /* css/style.css
-   Global styles + multiple themes via CSS variables
+   Space / Cyber Theme Design System
 */
 
-/* ===== Base variables (used as defaults) ===== */
+/* ===== Base variables (Deep Space Theme) ===== */
 :root {
-  --bg: #f3f4f6;
-  --card: #ffffff;
-  --text: #0f1724;
-  --muted: #6b7280;
-  --accent: #0b79ff;
-  --input-bg: #ffffff;
-  --input-border: #e6e9ef;
-  --shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
-  --radius: 10px;
+  /* Dynamic Background */
+  --bg-gradient: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  --bg-color: #0f0c29;
+
+  /* Glassmorphism Card */
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-border: 1px solid rgba(255, 255, 255, 0.1);
+  --card-blur: 16px;
+
+  /* Text */
+  --text: #ffffff;
+  --muted: #a0a0b0;
+
+  /* Accents */
+  --accent: #b5179e;
+  /* Pink/Purple Neon */
+  --accent-gradient: linear-gradient(to right, #7209b7, #f72585);
+  --accent-glow: 0 0 15px rgba(247, 37, 133, 0.5);
+
+  /* Inputs */
+  --input-bg: rgba(0, 0, 0, 0.3);
+  --input-border: rgba(255, 255, 255, 0.1);
+  --input-focus: rgba(247, 37, 133, 0.3);
+
+  /* Misc */
+  --radius: 16px;
+  --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   --btn-text: #ffffff;
+
+  /* Legacy Compatibility / Aliases */
+  --bg: var(--bg-color);
+  --card: var(--card-bg);
+  /* --input-border is already defined */
+  /* --text is already defined */
 }
 
-/* ===== Theme: dark (applied with .theme-dark on <body>) ===== */
-body.theme-dark {
-  --bg: #0b1220;
-  --card: #0f1724;
-  --text: #e6eef8;
-  --muted: #98a3b3;
-  --accent: #3da5ff;
-  --input-bg: #0b1220;
-  --input-border: #1f2a3a;
-  --shadow: none;
-  --btn-text: #071427;
+/* Light Theme (Optional / Fallback override) - Keeping it minimalist but clean if toggled */
+/* Light Theme (Cyber Pop) */
+body.theme-light {
+  /* Bright, clean background with a subtle tech sheen */
+  --bg-gradient: linear-gradient(135deg, #e0eAFC 0%, #cfdef3 100%);
+  --bg-color: #e0eAFC;
+
+  /* Glassmorphism: White Glass */
+  --card-bg: rgba(255, 255, 255, 0.65);
+  --card-border: 1px solid rgba(255, 255, 255, 0.8);
+  --card-blur: 24px;
+
+  /* Typography: High Contrast Dark */
+  --text: #1a1a2e;
+  --muted: #4a5568;
+  --btn-text: #ffffff;
+
+  /* Keep Neon Accents but maybe slightly darker for contrast? 
+     Actually, standard neon pink looks good on white too. 
+     Let's implicitly inherit --accent and --accent-gradient unless we want to change them.
+     We'll just ensure inputs look good.
+  */
+
+  /* Inputs */
+  --input-bg: rgba(255, 255, 255, 0.9);
+  --input-border: #cbd5e0;
+  --input-focus: rgba(181, 23, 158, 0.3);
 }
 
-/* ===== Theme: blue (accent-heavy) ===== */
-body.theme-blue {
-  --bg: #eaf6ff;
-  --card: #ffffff;
-  --text: #0b2a44;
-  --muted: #507089;
-  --accent: #0066ff;
-  --input-bg: #fff;
-  --input-border: #dbeeff;
-  --shadow: 0 12px 36px rgba(3, 40, 122, 0.06);
-  --btn-text: #ffffff;
+/* Light Theme Overrides for Specific Elements */
+body.theme-light h2 {
+  background: linear-gradient(to right, #1a1a2e, #4a5568);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #1a1a2e;
+  /* Fallback */
 }
+
+body.theme-light .hero h1 {
+  background: linear-gradient(to right, #1a1a2e, #2d3748);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Navbar Toggle for Light Theme */
+body.theme-light .navbar {
+  background: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body.theme-light .navbar .link {
+  color: var(--accent);
+  /* Ensure links stay readable/colored */
+}
+
 
 /* ===== Global layout ===== */
 * {
-  box-sizing: border-box
+  box-sizing: border-box;
 }
 
 html,
 body {
-  height: 100%
+  height: 100%;
 }
 
 body {
   margin: 0;
-  font-family: Inter, Arial, sans-serif;
-  background: var(--bg);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg-color);
+  /* Fallback */
+  background: var(--bg-gradient);
+  background-attachment: fixed;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* center container helper */
+/* Page Container */
 .page-center {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px
+  padding: 24px;
 }
 
-/* Card */
+/* Glass Card */
 .card {
   width: 100%;
-  max-width: 420px;
-  background: var(--card);
-  padding: 28px;
+  max-width: 480px;
+  /* Slightly wider for modern feel */
+  background: var(--card-bg);
+  padding: 32px;
   border-radius: var(--radius);
+  border: var(--card-border);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(var(--card-blur));
+  -webkit-backdrop-filter: blur(var(--card-blur));
   text-align: center;
+  position: relative;
+  overflow: hidden;
 }
 
-/* Headings & small text */
-h1,
-h2 {
-  margin: 0 0 10px
+/* Decorative Glow behind card (optional visual flare) */
+.card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.03) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
 }
+
+.card>* {
+  position: relative;
+  z-index: 1;
+}
+
+/* Typography */
+h1,
+h2,
+h3 {
+  margin: 0 0 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 1.8rem;
+  background: linear-gradient(to right, #fff, #ccc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  /* Fallback for browsers not supporting text clip */
+  color: #fff;
+}
+
+
 
 .lead {
   color: var(--muted);
-  margin-bottom: 18px
+  margin-bottom: 24px;
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
-/* Inputs & buttons */
+/* Inputs */
 .input {
   width: 100%;
-  padding: 12px 10px;
-  margin: 8px 0;
-  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 10px 0;
+  border-radius: 12px;
   border: 1px solid var(--input-border);
   background: var(--input-bg);
   color: var(--text);
-  font-size: 15px;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  outline: none;
 }
 
+.input:focus {
+  border-color: rgba(247, 37, 133, 0.5);
+  box-shadow: 0 0 0 4px var(--input-focus);
+}
+
+/* Buttons */
 .btn {
   width: 100%;
-  padding: 12px;
-  margin-top: 10px;
-  border-radius: 10px;
+  padding: 14px;
+  margin-top: 16px;
+  border-radius: 12px;
   border: 0;
-  background: var(--accent);
+  background: var(--accent-gradient);
   color: var(--btn-text);
   font-weight: 600;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: var(--accent-glow);
 }
 
-/* secondary small button */
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(247, 37, 133, 0.6);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Secondary Button */
 .small-btn {
-  padding: 8px 12px;
+  padding: 8px 16px;
   border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: transparent;
-  color: var(--accent);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
   cursor: pointer;
   text-decoration: none;
   display: inline-block;
+  font-size: 0.85rem;
+  transition: all 0.2s;
 }
 
-/* link style */
+.small-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
 a.link {
   color: var(--accent);
-  text-decoration: none
+  text-decoration: none;
+  font-weight: 500;
 }
 
-/* messages */
+a.link:hover {
+  text-decoration: underline;
+}
+
+/* Messages */
 .msg-success {
-  background: #e7f7e7;
-  color: #1b7a2a;
-  padding: 10px;
-  border-radius: 6px;
-  margin-bottom: 12px
+  background: rgba(16, 185, 129, 0.2);
+  /* Green tint */
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(5px);
 }
 
 .msg-error {
-  background: #fde4e4;
-  color: #b00020;
-  padding: 10px;
-  border-radius: 6px;
-  margin-bottom: 12px
+  background: rgba(239, 68, 68, 0.2);
+  /* Red tint */
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(5px);
 }
 
-/* small theme selector bar (placed top-right) */
+/* Theme Toggle */
 .theme-bar {
   position: fixed;
-  top: 14px;
-  right: 14px;
-  display: flex;
-  gap: 8px;
-  z-index: 999;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
 }
 
-/* Toggle Switch */
 .switch {
   position: relative;
   display: inline-block;
@@ -183,7 +317,7 @@ a.link {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: rgba(255, 255, 255, 0.2);
   transition: .4s;
   border-radius: 34px;
 }
@@ -204,33 +338,156 @@ input:checked+.slider {
   background-color: var(--accent);
 }
 
-input:focus+.slider {
-  box-shadow: 0 0 1px var(--accent);
-}
-
 input:checked+.slider:before {
   transform: translateX(24px);
 }
 
-
-/* small responsive tweak */
-@media (max-width:420px) {
-  .card {
-    padding: 18px;
-    margin: 0 12px
-  }
-}
-
-/* Helpers for index.php cleanup */
-.helper {
-  margin-top: 14px;
-}
-
-.mb-3 {
-  margin-bottom: 12px;
-}
-
+/* Helpers */
 .flex-between {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+/* Interactive Grid Customization for Booking Page */
+/* These inline styles were in HTML, but we can enhance them here if classes were used. 
+   Currently relying on inline styles for grid logic, but let's add global overrides for better visuals if possible */
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* ===== Dashboard Layout System ===== */
+
+/* Navbar */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 70px;
+  background: rgba(15, 12, 41, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  z-index: 1000;
+}
+
+.nav-brand {
+  font-size: 1.5rem;
+  font-weight: 800;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.05em;
+}
+
+.nav-items {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+/* Main Container */
+.container {
+  max-width: 1200px;
+  margin: 100px auto 40px;
+  /* Top margin for fixed navbar */
+  padding: 0 20px;
+}
+
+/* Hero Section */
+.hero {
+  margin-bottom: 40px;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  margin-bottom: 10px;
+  background: linear-gradient(to right, #fff, #a0a0b0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+  font-size: 1.2rem;
+  color: var(--muted);
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+/* Stat/Feature Card */
+.stat-card {
+  background: var(--card-bg);
+  border: var(--card-border);
+  backdrop-filter: blur(var(--card-blur));
+  border-radius: var(--radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 180px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  text-align: left;
+  /* Reset center alignment from generic card */
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.stat-card h3 {
+  font-size: 1.4rem;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.stat-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: transparent;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 10px 0;
+}
+
+.stat-card p {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* Override existing page-center which forces centering */
+/* Only use page-center for login/auth pages now */
+.dashboard-body {
+  background: var(--bg-gradient);
+  background-attachment: fixed;
+  min-height: 100vh;
 }

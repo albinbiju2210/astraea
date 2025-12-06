@@ -211,11 +211,23 @@ include 'includes/header.php';
                 <?php foreach ($slots as $s): ?>
                     <?php 
                         if ($s['is_maintenance']) {
-                            $bg = '#e2e3e5'; $border = 'gray'; $cursor = 'not-allowed';
+                            // Maintenance: Dark Gray/Metallic with Striped effect maybe? Keeping simple gray glass.
+                            $bg = 'rgba(255, 255, 255, 0.05)'; 
+                            $border = 'var(--muted)'; 
+                            $cursor = 'not-allowed';
+                            $text_color = 'var(--muted)';
                         } elseif (!$s['is_available']) {
-                            $bg = '#f8d7da'; $border = 'firebrick'; $cursor = 'not-allowed';
+                            // Occupied: Red Glass
+                            $bg = 'rgba(220, 53, 69, 0.2)'; // Red tint
+                            $border = '#dc3545'; 
+                            $cursor = 'not-allowed';
+                            $text_color = '#ff6b6b';
                         } else {
-                            $bg = '#d4edda'; $border = 'green'; $cursor = 'pointer';
+                            // Available: Neon Green/Cyan Glass
+                            $bg = 'rgba(16, 185, 129, 0.1)'; 
+                            $border = '#10b981'; 
+                            $cursor = 'pointer';
+                            $text_color = '#34d399';
                         }
                     ?>
                     
@@ -231,14 +243,17 @@ include 'includes/header.php';
                             <button type="submit" style="
                                 width:100%; height:80px; 
                                 background:<?php echo $bg; ?>; 
-                                border:2px solid <?php echo $border; ?>; 
-                                border-radius:4px; 
+                                border:1px solid <?php echo $border; ?>; 
+                                border-radius:8px; 
                                 cursor:<?php echo $cursor; ?>;
                                 display:flex; flex-direction:column; justify-content:center; align-items:center;
                                 padding:0;
-                            " title="Click to Book">
-                                <strong style="font-size:1.1rem; color:#333;"><?php echo htmlspecialchars($s['slot_number']); ?></strong>
-                                <span style="font-size:0.7rem; color:green; font-weight:bold;">FREE</span>
+                                transition: all 0.3s ease;
+                                backdrop-filter: blur(4px);
+                                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                            " title="Click to Book" onmouseover="this.style.boxShadow='0 0 15px <?php echo $border; ?>'; this.style.borderColor='white';" onmouseout="this.style.boxShadow='none'; this.style.borderColor='<?php echo $border; ?>';">
+                                <strong style="font-size:1.1rem; color:<?php echo $text_color; ?>;"><?php echo htmlspecialchars($s['slot_number']); ?></strong>
+                                <span style="font-size:0.7rem; color:<?php echo $text_color; ?>; font-weight:bold; letter-spacing:1px; margin-top:4px;">OPEN</span>
                             </button>
                         </form>
                     <?php else: ?>
@@ -246,17 +261,17 @@ include 'includes/header.php';
                         <div style="
                             width:100%; height:80px; 
                             background:<?php echo $bg; ?>; 
-                            border:2px solid <?php echo $border; ?>; 
-                            border-radius:4px; 
+                            border:1px solid <?php echo $border; ?>; 
+                            border-radius:8px; 
                             cursor:<?php echo $cursor; ?>;
                             display:flex; flex-direction:column; justify-content:center; align-items:center;
-                            opacity: 0.8;
+                            opacity: 0.7;
                         ">
-                            <strong style="font-size:1.1rem; color:#555;"><?php echo htmlspecialchars($s['slot_number']); ?></strong>
+                            <strong style="font-size:1.1rem; color:<?php echo $text_color; ?>;"><?php echo htmlspecialchars($s['slot_number']); ?></strong>
                             <?php if ($s['is_maintenance']): ?>
-                                <span style="font-size:0.7rem; color:gray;">MAINT</span>
+                                <span style="font-size:0.7rem; color:var(--muted); letter-spacing:1px; margin-top:4px;">MAINT</span>
                             <?php else: ?>
-                                <span style="font-size:0.7rem; color:firebrick;">BUSY</span>
+                                <span style="font-size:0.7rem; color:<?php echo $text_color; ?>; letter-spacing:1px; margin-top:4px;">BUSY</span>
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>

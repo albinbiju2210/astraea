@@ -7,29 +7,37 @@
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', () => {
     const toggle = document.getElementById('theme-toggle');
+    const body = document.body;
 
     // 1. Check for saved theme preference
     const savedTheme = localStorage.getItem('astraea-theme');
 
-    // Apply saved theme
-    if (savedTheme === 'dark') {
-        document.body.classList.add('theme-dark');
+    // Logic: Default is Dark (No Class). 'theme-light' class enables Light mode.
+    // Toggle Switch: Checked = Light Mode, Unchecked = Dark Mode 
+    // (Or vice versa? usually Toggle ON is the "Active" non-default state. 
+    // Since default is Dark, let's make Toggle ON = Light Mode).
+
+    const isLight = savedTheme === 'light';
+
+    if (isLight) {
+        body.classList.add('theme-light');
         if (toggle) toggle.checked = true;
     } else {
-        // Default is light
-        document.body.classList.remove('theme-dark');
+        body.classList.remove('theme-light');
         if (toggle) toggle.checked = false;
     }
 
-    // 2. Event Listener for toggle
+    // 2. Event Listener
     if (toggle) {
         toggle.addEventListener('change', (e) => {
             if (e.target.checked) {
-                document.body.classList.add('theme-dark');
-                localStorage.setItem('astraea-theme', 'dark');
-            } else {
-                document.body.classList.remove('theme-dark');
+                // Switch to Light
+                body.classList.add('theme-light');
                 localStorage.setItem('astraea-theme', 'light');
+            } else {
+                // Switch back to Dark (Default)
+                body.classList.remove('theme-light');
+                localStorage.setItem('astraea-theme', 'dark');
             }
         });
     }
