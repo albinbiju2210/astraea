@@ -2,55 +2,9 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
-
-if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
-    exit;
-}
-require 'db.php';
-
-if (!isset($_GET['booking_id'])) {
-    die("Invalid Request");
-}
-
-$booking_id = $_GET['booking_id'];
-$user_id = $_SESSION['user_id'];
-
-// 1. Fetch Booking & Target Slot Info
-$stmt = $pdo->prepare("
-    SELECT b.*, s.slot_number, s.lot_id, l.name as lot_name 
-    FROM bookings b
-    JOIN parking_slots s ON b.slot_id = s.id
-    JOIN parking_lots l ON s.lot_id = l.id
-    WHERE b.id = ? AND b.user_id = ?
-");
-$stmt->execute([$booking_id, $user_id]);
-$booking = $stmt->fetch();
-
-if (!$booking) {
-    die("Booking not found or access denied.");
-}
-
-$target_slot_id = $booking['slot_id'];
-$lot_id = $booking['lot_id'];
-
-// 2. Fetch All Slots for this Lot to build the map
-$stmt_slots = $pdo->prepare("SELECT id, slot_number, is_occupied FROM parking_slots WHERE lot_id = ? ORDER BY slot_number ASC");
-$stmt_slots->execute([$lot_id]);
-$all_slots = $stmt_slots->fetchAll();
-
-// Prepare data for JS
-$js_data = [
-    'target_slot_id' => $target_slot_id,
-    'slots' => $all_slots
-];
-?>
-<!DOCTYPE html>
-<html lang="en">
-<?php
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-session_start();
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: index.php');

@@ -2,6 +2,9 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
 if (!isset($_SESSION['admin_id'])) {
     header('Location: admin_login.php?error=' . urlencode('Please login as admin.'));
     exit;
@@ -18,10 +21,30 @@ $stats = [
 ];
 
 try {
+    // Common Stats
     $stats['users'] = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
-    $stats['lots']  = $pdo->query("SELECT COUNT(*) FROM parking_lots")->fetchColumn();
-    $stats['slots'] = $pdo->query("SELECT COUNT(*) FROM parking_slots")->fetchColumn();
-    $stats['active_bookings'] = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'active'")->fetchColumn();
+
+    // Context-Aware Stats
+    if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
+        $lotId = $_SESSION['admin_lot_id'];
+        $stats['lots']  = 1; // You manage 1 lot
+        $stats['slots'] = $pdo->prepare("SELECT COUNT(*) FROM parking_slots WHERE lot_id = ?");
+        $stats['slots']->execute([$lotId]);
+        $stats['slots'] = $stats['slots']->fetchColumn();
+        
+        $stats['active_bookings'] = $pdo->prepare("
+            SELECT COUNT(*) FROM bookings b 
+            JOIN parking_slots s ON b.slot_id = s.id 
+            WHERE b.status = 'active' AND s.lot_id = ?
+        ");
+        $stats['active_bookings']->execute([$lotId]);
+        $stats['active_bookings'] = $stats['active_bookings']->fetchColumn();
+    } else {
+        // Super Admin
+        $stats['lots']  = $pdo->query("SELECT COUNT(*) FROM parking_lots")->fetchColumn();
+        $stats['slots'] = $pdo->query("SELECT COUNT(*) FROM parking_slots")->fetchColumn();
+        $stats['active_bookings'] = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'active'")->fetchColumn();
+    }
 } catch (Exception $e) { /* ignore */ }
 
 ?>

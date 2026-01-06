@@ -16,7 +16,7 @@ if ($email === '' || $password === '') {
 }
 
 // fetch user and check is_admin flag
-$stmt = $pdo->prepare("SELECT id, name, password_hash, is_admin FROM users WHERE email = ? LIMIT 1");
+$stmt = $pdo->prepare("SELECT id, name, password_hash, is_admin, managed_lot_id FROM users WHERE email = ? LIMIT 1");
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
@@ -40,6 +40,7 @@ if (! password_verify($password, $user['password_hash'])) {
 session_regenerate_id(true);
 $_SESSION['admin_id'] = $user['id'];
 $_SESSION['admin_name'] = $user['name'];
+$_SESSION['admin_lot_id'] = $user['managed_lot_id']; // NULL for Super Admin, Int for Lot Admin
 
 header('Location: admin_home.php');
 exit;

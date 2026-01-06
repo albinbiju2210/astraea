@@ -1,6 +1,14 @@
 <?php
 // user.php
-require 'auth.php'; // ensures session and logged-in status
+session_start();
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+
+if (!isset($_SESSION['user_id'])) {
+    header('Location: index.php');
+    exit;
+}
 require 'db.php';
 
 $userId = $_SESSION['user_id'];
