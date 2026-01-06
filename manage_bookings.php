@@ -16,6 +16,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $booking_id = $_POST['booking_id'];
     $slot_id = $_POST['slot_id'];
     
+    // SECURITY: Lot Admin Check
+    if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
+        $check = $pdo->prepare("SELECT lot_id FROM parking_slots WHERE id = ?");
+        $check->execute([$slot_id]);
+        if ($check->fetchColumn() != $_SESSION['admin_lot_id']) { die("Unauthorized"); }
+    }
+
     // 1. Update Booking Status
     $stmt = $pdo->prepare("UPDATE bookings SET status = 'cancelled' WHERE id = ?");
     $stmt->execute([$booking_id]);
@@ -39,8 +46,13 @@ $sql = "
     JOIN users u ON b.user_id = u.id
     JOIN parking_slots s ON b.slot_id = s.id
     JOIN parking_lots l ON s.lot_id = l.id
-    ORDER BY b.created_at DESC
 ";
+
+if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
+    $sql .= " WHERE l.id = " . intval($_SESSION['admin_lot_id']);
+}
+
+$sql .= " ORDER BY b.created_at DESC";
 $bookings = $pdo->query($sql)->fetchAll();
 
 include 'includes/header.php';

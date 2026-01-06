@@ -18,6 +18,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Add Slot
         if ($_POST['action'] === 'add_slot') {
             $lot_id = $_POST['lot_id'];
+            
+            // SECURITY: Lot Admin restriction
+            if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null && $_SESSION['admin_lot_id'] != $lot_id) {
+                die("Unauthorized");
+            }
+
             $slot_number = trim($_POST['slot_number']);
             if ($lot_id && $slot_number) {
                 // Check duplicate
@@ -36,6 +42,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Toggle Maintenance
         elseif ($_POST['action'] === 'toggle_maintenance') {
             $slot_id = $_POST['slot_id'];
+            
+            // SECURITY Check
+            if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
+                $check = $pdo->prepare("SELECT lot_id FROM parking_slots WHERE id = ?");
+                $check->execute([$slot_id]);
+                if ($check->fetchColumn() != $_SESSION['admin_lot_id']) { die("Unauthorized"); }
+            }
+
             $current_status = $_POST['current_status'];
             $new_status = ($current_status == 1) ? 0 : 1;
             
@@ -47,6 +61,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Delete Slot
         elseif ($_POST['action'] === 'delete_slot') {
             $slot_id = $_POST['slot_id'];
+            
+            // SECURITY Check
+            if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
+                $check = $pdo->prepare("SELECT lot_id FROM parking_slots WHERE id = ?");
+                $check->execute([$slot_id]);
+                if ($check->fetchColumn() != $_SESSION['admin_lot_id']) { die("Unauthorized"); }
+            }
+
             $stmt = $pdo->prepare("DELETE FROM parking_slots WHERE id = ?");
             $stmt->execute([$slot_id]);
             header("Location: manage_slots.php?success=Slot Deleted");
@@ -55,11 +77,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch Lots for dropdown
-$lots = $pdo->query("SELECT * FROM parking_lots")->fetchAll();
+// Fetch Lots selection
+if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
+    $stmt = $pdo->prepare("SELECT * FROM parking_lots WHERE id = ?");
+    $stmt->execute([$_SESSION['admin_lot_id']]);
+} else {
+    $stmt = $pdo->query("SELECT * FROM parking_lots");
+}
+$lots = $stmt->fetchAll();
 
-// Fetch Slots with Lot Name
-$sql = "SELECT s.*, l.name as lot_name FROM parking_slots s JOIN parking_lots l ON s.lot_id = l.id ORDER BY l.name, s.slot_number";
+// Fetch Slots
+$sql = "SELECT s.*, l.name as lot_name FROM parking_slots s JOIN parking_lots l ON s.lot_id = l.id";
+if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
+    $sql .= " WHERE s.lot_id = " . intval($_SESSION['admin_lot_id']);
+}
+$sql .= " ORDER BY l.name, s.slot_number";
 $slots = $pdo->query($sql)->fetchAll();
 
 include 'includes/header.php';

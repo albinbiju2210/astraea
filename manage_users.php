@@ -11,19 +11,47 @@ if (!isset($_SESSION['admin_id'])) {
 }
 require 'db.php';
 
-// Fetch Users with Booking History
-// We use GROUP_CONCAT to get a list of booking IDs for each user
+// Handle Make/Remove Admin Action
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    // Only Super Admin can do this
+    if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
+        header("Location: manage_users.php?error=Unauthorized");
+        exit;
+    }
+
+    if ($_POST['action'] === 'assign_admin') {
+        $user_id = $_POST['user_id'];
+        $managed_lot_id = $_POST['managed_lot_id'] !== '' ? $_POST['managed_lot_id'] : null;
+        
+        $stmt = $pdo->prepare("UPDATE users SET is_admin = 1, managed_lot_id = ? WHERE id = ?");
+        $stmt->execute([$managed_lot_id, $user_id]);
+        
+        header("Location: manage_users.php?success=User promoted to Admin");
+        exit;
+    } elseif ($_POST['action'] === 'revoke_admin') {
+        // Not implemented in UI yet but good to have logic
+    }
+}
+
+// Fetch Users (excluding self)
+// We also fetch their admin status
 $sql = "
-    SELECT u.id, u.name, u.email, u.phone, u.created_at,
-           COUNT(b.id) as total_bookings,
-           GROUP_CONCAT(b.id ORDER BY b.created_at DESC SEPARATOR ', ') as booking_ids
+    SELECT u.id, u.name, u.email, u.phone, u.created_at, u.is_admin, u.managed_lot_id,
+           l.name as managed_lot_name,
+           COUNT(b.id) as total_bookings
     FROM users u
     LEFT JOIN bookings b ON u.id = b.user_id
-    WHERE u.is_admin = 0
+    LEFT JOIN parking_lots l ON u.managed_lot_id = l.id
+    WHERE u.id != ?
     GROUP BY u.id
     ORDER BY u.created_at DESC
 ";
-$users = $pdo->query($sql)->fetchAll();
+$stmt = $pdo->prepare($sql);
+$stmt->execute([$_SESSION['admin_id']]);
+$users = $stmt->fetchAll();
+
+// Fetch Lots for dropdown
+$lots = $pdo->query("SELECT * FROM parking_lots")->fetchAll();
 
 ?>
 <!DOCTYPE html>
@@ -50,49 +78,68 @@ $users = $pdo->query($sql)->fetchAll();
       <div class="flex-between" style="margin-bottom:30px;">
           <div>
               <h1>User Management</h1>
-              <p class="lead" style="margin:0">View user details and booking history.</p>
+              <p class="lead" style="margin:0">View user details and manage roles.</p>
           </div>
       </div>
+      
+      <?php if (isset($_GET['success'])): ?>
+          <div class="msg-success"><?php echo htmlspecialchars($_GET['success']); ?></div>
+      <?php endif; ?>
 
       <div class="card" style="max-width:100%; padding:0; overflow:hidden;">
           <table style="width:100%; text-align:left; border-collapse: collapse;">
               <thead>
                   <tr style="background: rgba(255,255,255,0.05); border-bottom:1px solid var(--input-border);">
-                      <th style="padding:15px; color:var(--muted);">ID</th>
-                      <th style="padding:15px; color:var(--muted);">User Details</th>
+                      <th style="padding:15px; color:var(--muted);">Details</th>
                       <th style="padding:15px; color:var(--muted);">Contact</th>
-                      <th style="padding:15px; color:var(--muted);">Bookings (IDs)</th>
-                      <th style="padding:15px; color:var(--muted);">Joined</th>
+                      <th style="padding:15px; color:var(--muted);">Role & Lot</th>
                   </tr>
               </thead>
               <tbody>
                   <?php if (count($users) > 0): ?>
                       <?php foreach ($users as $u): ?>
                           <tr style="border-bottom:1px solid var(--input-border);">
-                              <td style="padding:15px; vertical-align:top;">#<?php echo $u['id']; ?></td>
                               <td style="padding:15px; vertical-align:top;">
                                   <strong style="font-size:1.1rem;"><?php echo htmlspecialchars($u['name']); ?></strong><br>
+                                  <small style="color:var(--muted);">ID: #<?php echo $u['id']; ?> | Bookings: <?php echo $u['total_bookings']; ?></small>
                               </td>
                               <td style="padding:15px; vertical-align:top;">
-                                  <div style="margin-bottom:4px;">📧 <?php echo htmlspecialchars($u['email']); ?></div>
+                                  <div>📧 <?php echo htmlspecialchars($u['email']); ?></div>
                                   <div>📞 <?php echo htmlspecialchars($u['phone']); ?></div>
                               </td>
                               <td style="padding:15px; vertical-align:top;">
-                                  <?php if ($u['total_bookings'] > 0): ?>
-                                      <span style="color:var(--accent); font-weight:bold;"><?php echo $u['total_bookings']; ?> Total</span><br>
-                                      <small style="color:var(--muted); word-break:break-all;">IDs: <?php echo htmlspecialchars($u['booking_ids']); ?></small>
+                                  <!-- Role Management Form -->
+                                  <?php if (!isset($_SESSION['admin_lot_id']) || $_SESSION['admin_lot_id'] === null): ?>
+                                      <form method="post" style="display:flex; gap:5px; align-items:center;">
+                                          <input type="hidden" name="action" value="assign_admin">
+                                          <input type="hidden" name="user_id" value="<?php echo $u['id']; ?>">
+                                          
+                                          <select name="managed_lot_id" class="input" style="margin:0; padding:5px; font-size:0.9rem; width:150px;">
+                                              <option value="">User (No Admin)</option>
+                                              <option value="" <?php echo ($u['is_admin'] && $u['managed_lot_id'] === null) ? 'selected' : ''; ?>>Super Admin</option>
+                                              <?php foreach ($lots as $l): ?>
+                                                  <option value="<?php echo $l['id']; ?>" <?php echo ($u['managed_lot_id'] == $l['id']) ? 'selected' : ''; ?>>
+                                                      Admin: <?php echo htmlspecialchars($l['name']); ?>
+                                                  </option>
+                                              <?php endforeach; ?>
+                                          </select>
+                                          <button class="small-btn" style="padding:5px 10px;">Save</button>
+                                      </form>
                                   <?php else: ?>
-                                      <span style="color:var(--muted);">No bookings</span>
+                                      <?php if ($u['is_admin']): ?>
+                                          <span style="color:var(--accent);">
+                                              <?php echo $u['managed_lot_id'] ? ("Admin: " . htmlspecialchars($u['managed_lot_name'])) : "Super Admin"; ?>
+                                          </span>
+                                      <?php else: ?>
+                                          User
+                                      <?php endif; ?>
                                   <?php endif; ?>
-                              </td>
-                              <td style="padding:15px; vertical-align:top; color:var(--muted);">
-                                  <?php echo date('M d, Y', strtotime($u['created_at'])); ?>
                               </td>
                           </tr>
                       <?php endforeach; ?>
                   <?php else: ?>
                       <tr>
-                          <td colspan="5" style="padding:30px; text-align:center; color:var(--muted);">No users found.</td>
+                          <td colspan="3" style="padding:30px; text-align:center; color:var(--muted);">No users found.</td>
                       </tr>
                   <?php endif; ?>
               </tbody>
