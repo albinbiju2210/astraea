@@ -1,102 +1,53 @@
 /* css/style.css
-   Space / Cyber Theme Design System
+   Angelic / Ethereal Theme
 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
 
-/* ===== Base variables (Deep Space Theme) ===== */
 :root {
-  /* Dynamic Background */
-  --bg-gradient: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-  --bg-color: #0f0c29;
+  /* Aesthetic: Angelic, Soft, Minimalist, Cloud-like */
 
-  /* Glassmorphism Card */
-  --card-bg: rgba(255, 255, 255, 0.03);
-  --card-border: 1px solid rgba(255, 255, 255, 0.1);
-  --card-blur: 16px;
+  /* Dynamic Background: Soft Cloud White/Silver */
+  --bg-gradient: linear-gradient(180deg, #fdfbfb 0%, #ebedee 100%);
+  --bg-color: #fdfbfb;
 
-  /* Text */
-  --text: #ffffff;
-  --muted: #a0a0b0;
-
-  /* Accents */
-  --accent: #b5179e;
-  /* Pink/Purple Neon */
-  --accent-gradient: linear-gradient(to right, #7209b7, #f72585);
-  --accent-glow: 0 0 15px rgba(247, 37, 133, 0.5);
-
-  /* Inputs */
-  --input-bg: rgba(0, 0, 0, 0.3);
-  --input-border: rgba(255, 255, 255, 0.1);
-  --input-focus: rgba(247, 37, 133, 0.3);
-
-  /* Misc */
-  --radius: 16px;
-  --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  --btn-text: #ffffff;
-
-  /* Legacy Compatibility / Aliases */
-  --bg: var(--bg-color);
-  --card: var(--card-bg);
-  /* --input-border is already defined */
-  /* --text is already defined */
-}
-
-/* Light Theme (Optional / Fallback override) - Keeping it minimalist but clean if toggled */
-/* Light Theme (Cyber Pop) */
-body.theme-light {
-  /* Bright, clean background with a subtle tech sheen */
-  --bg-gradient: linear-gradient(135deg, #e0eAFC 0%, #cfdef3 100%);
-  --bg-color: #e0eAFC;
-
-  /* Glassmorphism: White Glass */
-  --card-bg: rgba(255, 255, 255, 0.65);
-  --card-border: 1px solid rgba(255, 255, 255, 0.8);
+  /* Glassmorphism Card: White Frost */
+  --card-bg: rgba(255, 255, 255, 0.7);
+  --card-border: 1px solid rgba(255, 255, 255, 0.9);
   --card-blur: 24px;
 
-  /* Typography: High Contrast Dark */
-  --text: #1a1a2e;
-  --muted: #4a5568;
-  --btn-text: #ffffff;
+  /* Shadows: Soft, Diffuse, Angelic Glow */
+  --shadow: 0 10px 40px -10px rgba(180, 190, 200, 0.4);
+  --glow: 0 0 20px rgba(255, 255, 255, 0.8);
 
-  /* Keep Neon Accents but maybe slightly darker for contrast? 
-     Actually, standard neon pink looks good on white too. 
-     Let's implicitly inherit --accent and --accent-gradient unless we want to change them.
-     We'll just ensure inputs look good.
-  */
+  /* Text: Soft Dark Grey (Not harsh black) */
+  --text: #5e5e6e;
+  --heading-text: #2c2c36;
+  --muted: #9fa0a8;
+
+  /* Accents: Silver / Pearl / Soft Lavender */
+  --accent: #a6a6b8;
+  --accent-gradient: linear-gradient(135deg, #e0e0e0 0%, #ffffff 100%);
+  --accent-glow: 0 4px 15px rgba(0, 0, 0, 0.05);
 
   /* Inputs */
-  --input-bg: rgba(255, 255, 255, 0.9);
-  --input-border: #cbd5e0;
-  --input-focus: rgba(181, 23, 158, 0.3);
+  --input-bg: rgba(255, 255, 255, 0.8);
+  --input-border: #e6e6e9;
+  --input-focus: #d1d1d6;
+
+  /* Misc */
+  --radius: 20px;
+  --btn-text: #5e5e6e;
 }
 
-/* Light Theme Overrides for Specific Elements */
-body.theme-light h2 {
-  background: linear-gradient(to right, #1a1a2e, #4a5568);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: #1a1a2e;
-  /* Fallback */
+/* Hide Theme Toggle for Single Theme Deployment */
+#theme-toggle,
+.theme-bar,
+.switch {
+  display: none !important;
 }
 
-body.theme-light .hero h1 {
-  background: linear-gradient(to right, #1a1a2e, #2d3748);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* Navbar Toggle for Light Theme */
-body.theme-light .navbar {
-  background: rgba(255, 255, 255, 0.85);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-body.theme-light .navbar .link {
-  color: var(--accent);
-  /* Ensure links stay readable/colored */
-}
-
+/* Light/Dark Toggle Logic - Optional Future Proofing */
+/* Currently Default is the requested Light/Angelic Theme */
 
 /* ===== Global layout ===== */
 * {
@@ -112,12 +63,14 @@ body {
   margin: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: var(--bg-color);
-  /* Fallback */
   background: var(--bg-gradient);
   background-attachment: fixed;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-weight: 300;
+  /* Lighter weight for elegance */
+  transition: background 0.5s ease;
 }
 
 /* Page Container */
@@ -133,9 +86,8 @@ body {
 .card {
   width: 100%;
   max-width: 480px;
-  /* Slightly wider for modern feel */
   background: var(--card-bg);
-  padding: 32px;
+  padding: 40px;
   border-radius: var(--radius);
   border: var(--card-border);
   box-shadow: var(--shadow);
@@ -144,9 +96,10 @@ body {
   text-align: center;
   position: relative;
   overflow: hidden;
+  transition: transform 0.3s ease;
 }
 
-/* Decorative Glow behind card (optional visual flare) */
+/* Decorative ethereal glow behind card */
 .card::before {
   content: '';
   position: absolute;
@@ -154,9 +107,10 @@ body {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.03) 0%, transparent 60%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, transparent 60%);
   pointer-events: none;
   z-index: 0;
+  opacity: 0.5;
 }
 
 .card>* {
@@ -169,68 +123,80 @@ h1,
 h2,
 h3 {
   margin: 0 0 16px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-family: 'Playfair Display', serif;
+  /* Elegant Serif for Headers */
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--heading-text);
+  background: none;
+  -webkit-text-fill-color: initial;
+}
+
+h1 {
+  font-size: 2.2rem;
 }
 
 h2 {
   font-size: 1.8rem;
-  background: linear-gradient(to right, #fff, #ccc);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  /* Fallback for browsers not supporting text clip */
-  color: #fff;
 }
 
-
+h3 {
+  font-size: 1.4rem;
+  font-weight: 500;
+}
 
 .lead {
   color: var(--muted);
   margin-bottom: 24px;
   font-size: 0.95rem;
-  line-height: 1.5;
+  line-height: 1.6;
+  font-weight: 400;
 }
 
 /* Inputs */
 .input {
   width: 100%;
-  padding: 14px 16px;
-  margin: 10px 0;
-  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 12px 0;
+  border-radius: 16px;
   border: 1px solid var(--input-border);
   background: var(--input-bg);
-  color: var(--text);
+  color: var(--heading-text);
   font-size: 16px;
   transition: all 0.3s ease;
   outline: none;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .input:focus {
-  border-color: rgba(247, 37, 133, 0.5);
-  box-shadow: 0 0 0 4px var(--input-focus);
+  border-color: var(--input-focus);
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
 }
 
 /* Buttons */
 .btn {
   width: 100%;
-  padding: 14px;
-  margin-top: 16px;
-  border-radius: 12px;
-  border: 0;
+  padding: 16px;
+  margin-top: 20px;
+  border-radius: 16px;
+  border: 1px solid #ffffff;
+  /* Pearl Borer */
   background: var(--accent-gradient);
   color: var(--btn-text);
   font-weight: 600;
   cursor: pointer;
   font-size: 16px;
   letter-spacing: 0.02em;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: var(--accent-glow);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
 .btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 20px rgba(247, 37, 133, 0.6);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
 }
 
 .btn:active {
@@ -240,68 +206,61 @@ h2 {
 /* Secondary Button */
 .small-btn {
   padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid var(--input-border);
+  background: rgba(255, 255, 255, 0.5);
   color: var(--text);
   cursor: pointer;
   text-decoration: none;
   display: inline-block;
   font-size: 0.85rem;
   transition: all 0.2s;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
 }
 
 .small-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.4);
+  background: #ffffff;
+  border-color: #d1d1d6;
+  transform: translateY(-1px);
 }
 
 a.link {
-  color: var(--accent);
+  color: var(--heading-text);
   text-decoration: none;
   font-weight: 500;
+  border-bottom: 1px dotted var(--muted);
+  transition: border-color 0.2s;
 }
 
 a.link:hover {
-  text-decoration: underline;
+  border-bottom: 1px solid var(--text);
 }
 
 /* Messages */
 .msg-success {
-  background: rgba(16, 185, 129, 0.2);
-  /* Green tint */
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  color: #6ee7b7;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  backdrop-filter: blur(5px);
+  background: rgba(235, 250, 240, 0.8);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #059669;
+  padding: 14px;
+  border-radius: 12px;
+  margin-bottom: 20px;
 }
 
 .msg-error {
-  background: rgba(239, 68, 68, 0.2);
-  /* Red tint */
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  backdrop-filter: blur(5px);
+  background: rgba(254, 242, 242, 0.8);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+  padding: 14px;
+  border-radius: 12px;
+  margin-bottom: 20px;
 }
 
-/* Theme Toggle */
-.theme-bar {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
-}
-
+/* Toggle Switch (Adapted for this theme) */
 .switch {
   position: relative;
   display: inline-block;
-  width: 50px;
-  height: 26px;
+  width: 46px;
+  height: 24px;
 }
 
 .switch input {
@@ -317,7 +276,7 @@ a.link:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: #e0e0e0;
   transition: .4s;
   border-radius: 34px;
 }
@@ -327,11 +286,12 @@ a.link:hover {
   content: "";
   height: 18px;
   width: 18px;
-  left: 4px;
-  bottom: 4px;
+  left: 3px;
+  bottom: 3px;
   background-color: white;
   transition: .4s;
   border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 input:checked+.slider {
@@ -339,7 +299,7 @@ input:checked+.slider {
 }
 
 input:checked+.slider:before {
-  transform: translateX(24px);
+  transform: translateX(22px);
 }
 
 /* Helpers */
@@ -349,11 +309,7 @@ input:checked+.slider:before {
   align-items: center;
 }
 
-/* Interactive Grid Customization for Booking Page */
-/* These inline styles were in HTML, but we can enhance them here if classes were used. 
-   Currently relying on inline styles for grid logic, but let's add global overrides for better visuals if possible */
-
-/* Scrollbar */
+/* Scrollbar (Minimal Grey) */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -363,13 +319,14 @@ input:checked+.slider:before {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: #d1d1d6;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: #a0a0a0;
 }
+
 
 /* ===== Dashboard Layout System ===== */
 
@@ -380,24 +337,24 @@ input:checked+.slider:before {
   left: 0;
   width: 100%;
   height: 70px;
-  background: rgba(15, 12, 41, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(253, 251, 251, 0.85);
+  /* Ethereal White */
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 40px;
   z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
 }
 
 .nav-brand {
-  font-size: 1.5rem;
-  font-weight: 800;
-  background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: -0.05em;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--heading-text);
+  letter-spacing: -0.03em;
+  font-family: 'Playfair Display', serif;
 }
 
 .nav-items {
@@ -410,26 +367,27 @@ input:checked+.slider:before {
 .container {
   max-width: 1200px;
   margin: 100px auto 40px;
-  /* Top margin for fixed navbar */
   padding: 0 20px;
 }
 
 /* Hero Section */
 .hero {
   margin-bottom: 40px;
+  text-align: left;
 }
 
 .hero h1 {
-  font-size: 3rem;
+  font-size: 2.8rem;
   margin-bottom: 10px;
-  background: linear-gradient(to right, #fff, #a0a0b0);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-weight: 400;
+  /* Playfair bold is strong, let's go normal/medium */
+  color: var(--heading-text);
+  background: none;
+  -webkit-text-fill-color: initial;
 }
 
 .hero p {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   color: var(--muted);
 }
 
@@ -442,41 +400,41 @@ input:checked+.slider:before {
 
 /* Stat/Feature Card */
 .stat-card {
-  background: var(--card-bg);
-  border: var(--card-border);
-  backdrop-filter: blur(var(--card-blur));
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.03);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 28px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   min-height: 180px;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   text-align: left;
-  /* Reset center alignment from generic card */
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+  /* Soft Float */
 }
 
 .stat-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.08);
+  /* Lift */
 }
 
 .stat-card h3 {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   margin-bottom: 8px;
-  color: var(--text);
+  color: var(--heading-text);
+  font-weight: 600;
 }
 
 .stat-value {
   font-size: 2.5rem;
-  font-weight: 700;
-  color: transparent;
-  background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin: 10px 0;
+  font-weight: 400;
+  color: var(--heading-text);
+  background: none;
+  /* Removed gradient text for cleaner look */
+  -webkit-text-fill-color: initial;
+  margin: 12px 0;
 }
 
 .stat-card p {
@@ -484,8 +442,6 @@ input:checked+.slider:before {
   font-size: 0.9rem;
 }
 
-/* Override existing page-center which forces centering */
-/* Only use page-center for login/auth pages now */
 .dashboard-body {
   background: var(--bg-gradient);
   background-attachment: fixed;

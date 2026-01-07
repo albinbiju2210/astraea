@@ -25,13 +25,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $slot_number = trim($_POST['slot_number']);
-            if ($lot_id && $slot_number) {
+            $floor_level = trim($_POST['floor_level']);
+            
+            if ($lot_id && $slot_number && $floor_level) {
                 // Check duplicate
                 $check = $pdo->prepare("SELECT id FROM parking_slots WHERE lot_id = ? AND slot_number = ?");
                 $check->execute([$lot_id, $slot_number]);
                 if (!$check->fetch()) {
-                    $stmt = $pdo->prepare("INSERT INTO parking_slots (lot_id, slot_number) VALUES (?, ?)");
-                    $stmt->execute([$lot_id, $slot_number]);
+                    $stmt = $pdo->prepare("INSERT INTO parking_slots (lot_id, slot_number, floor_level) VALUES (?, ?, ?)");
+                    $stmt->execute([$lot_id, $slot_number, $floor_level]);
                     header("Location: manage_slots.php?success=Slot Added");
                     exit;
                 } else {
@@ -122,7 +124,15 @@ include 'includes/header.php';
                         <option value="<?php echo $l['id']; ?>"><?php echo htmlspecialchars($l['name']); ?></option>
                     <?php endforeach; ?>
                 </select>
-                <input class="input" name="slot_number" placeholder="Slot Number (e.g. A-101)" required style="margin:0">
+                <select class="input" name="floor_level" required style="margin:0; width: auto; min-width: 120px;">
+                    <option value="">Level...</option>
+                    <option value="B1">Basement 1</option>
+                    <option value="G">Ground</option>
+                    <option value="L1">Level 1</option>
+                    <option value="L2">Level 2</option>
+                    <option value="L3">Level 3</option>
+                </select>
+                <input class="input" name="slot_number" placeholder="Slot # (e.g. A-101)" required style="margin:0">
                 <button class="btn" type="submit" style="margin:0; width:auto;">Add Slot</button>
             </div>
         </form>
@@ -132,6 +142,7 @@ include 'includes/header.php';
             <thead>
                 <tr style="border-bottom:2px solid var(--input-border);">
                     <th style="padding:10px;">Lot</th>
+                    <th style="padding:10px;">Level</th>
                     <th style="padding:10px;">Slot Number</th>
                     <th style="padding:10px;">Status</th>
                     <th style="padding:10px; text-align:right;">Actions</th>
@@ -142,6 +153,7 @@ include 'includes/header.php';
                     <?php foreach ($slots as $s): ?>
                         <tr style="border-bottom:1px solid var(--input-border);">
                             <td style="padding:10px;"><?php echo htmlspecialchars($s['lot_name']); ?></td>
+                            <td style="padding:10px;"><?php echo htmlspecialchars($s['floor_level'] ?? '-'); ?></td>
                             <td style="padding:10px;"><strong><?php echo htmlspecialchars($s['slot_number']); ?></strong></td>
                             <td style="padding:10px;">
                                 <?php if ($s['is_maintenance']): ?>

@@ -16,6 +16,19 @@ $success = '';
 $error = '';
 $step = 1;
 
+// Temp fix for slot IDs (if re-seeded)
+// We need to ensure we don't carry over old IDs if the user had a stale session/link
+if (isset($_POST['slot_id'])) {
+    $check_exists = $pdo->prepare("SELECT id FROM parking_slots WHERE id = ?");
+    $check_exists->execute([$_POST['slot_id']]);
+    if (!$check_exists->fetch()) {
+        $error = "The selected slot is no longer valid. Please start over.";
+        // Reset to step 2 to pick a new slot
+        $step = 2;
+        $_POST = []; 
+    }
+}
+
 // Initialize Variables
 $selected_lot_id = $_GET['lot_id'] ?? null;
 $start_time = $_GET['start_time'] ?? '';
@@ -200,6 +213,16 @@ include 'includes/header.php';
                 <div style="display:flex; align-items:center; gap:5px;"><div style="width:15px; height:15px; background:#f8d7da; border:1px solid firebrick;"></div> Occupied</div>
                 <div style="display:flex; align-items:center; gap:5px;"><div style="width:15px; height:15px; background:#e2e3e5; border:1px solid gray;"></div> Maintenance</div>
             </div>
+
+            <?php if (strtolower($lot_info['name']) === 'lulu mall'): ?>
+                <!-- 3D Map Link for Lulu Mall -->
+                <div style="margin:15px 0; text-align:center;">
+                    <a href="lulu_map.php" target="_blank" class="btn" style="background: linear-gradient(90deg, #39ff14, #00d2ff); color: #000; font-weight:800; border:none; width:100%; max-width:600px; display:inline-block; padding:12px 24px;">
+                        🗺️ VIEW LULU MALL LIVE 3D MAP
+                    </a>
+                    <p style="font-size:0.85rem; color:var(--muted); margin-top:8px;">Opens in a new tab - Real-time floor visualization</p>
+                </div>
+            <?php endif; ?>
 
             <!-- The Map -->
             <div style="

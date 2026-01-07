@@ -45,26 +45,29 @@ try {
         $pdo->commit();
     }
 
-    // 2. AUTO-START: Activate Booking Slots
-    // If a booking is currently ongoing (Start <= NOW < End), ensure the slot is marked occupied.
-    // This handles future bookings becoming active automatically.
+    // 2. SYNC SLOT OCCUPANCY: Mark slots as occupied ONLY if there's an active booking currently ongoing
+    // This ensures slots are only occupied when there's an actual active session right now
     
+    // First, get all slots that should be occupied (have active bookings currently in progress)
     $active_stmt = $pdo->query("
-        SELECT slot_id FROM bookings 
+        SELECT DISTINCT slot_id FROM bookings 
         WHERE status = 'active' 
         AND start_time <= NOW() 
         AND end_time > NOW()
     ");
-    $ongoing_slots = $active_stmt->fetchAll(PDO::FETCH_COLUMN);
+    $ongoing_slot_ids = $active_stmt->fetchAll(PDO::FETCH_COLUMN);
 
-    if ($ongoing_slots) {
-        // Optimize: Update all at once logic or loop
-        // Let's just update them to be safe.
-        $placeholders = implode(',', array_fill(0, count($ongoing_slots), '?'));
-        $pdo->prepare("UPDATE parking_slots SET is_occupied = 1 WHERE id IN ($placeholders)")->execute($ongoing_slots);
+    // Clear ALL slots first
+    $pdo->exec("UPDATE parking_slots SET is_occupied = 0");
+    
+    // Then mark only the currently active ones as occupied
+    if ($ongoing_slot_ids && count($ongoing_slot_ids) > 0) {
+        $placeholders = implode(',', array_fill(0, count($ongoing_slot_ids), '?'));
+        $pdo->prepare("UPDATE parking_slots SET is_occupied = 1 WHERE id IN ($placeholders)")->execute($ongoing_slot_ids);
     }
 
 } catch (Exception $e) {
     // Silent fail on cleanup to not block user flow
 }
+
 
