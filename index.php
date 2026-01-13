@@ -36,7 +36,7 @@ include __DIR__ . '/includes/header.php';
     <form action="login_process.php" method="post" autocomplete="off" novalidate>
       <input class="input" type="email" name="email" placeholder="Enter Email" required autofocus>
       <input class="input" type="password" name="password" placeholder="Enter Password" required>
-      <button class="btn" type="submit">Login</button>
+      <button class="btn mt-4" type="submit">Login</button>
     </form>
 
     <div class="helper" style="margin-top: 20px;">
@@ -61,8 +61,8 @@ include __DIR__ . '/includes/header.php';
       </div>
 
       <!-- Admin Login as a secondary full-width button -->
-      <div class="mb-3">
-        <a href="admin_login.php" class="btn" style="background: transparent; border: 1px solid rgba(255,255,255,0.3); color: var(--text); display: block; text-decoration: none; margin-top: 0;">
+      <div class="mb-3 mt-3">
+        <a href="admin_login.php" class="btn btn-secondary w-100" style="margin-top: 0;">
             Admin Login
         </a>
       </div>

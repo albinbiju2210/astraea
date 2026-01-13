@@ -217,7 +217,7 @@ include 'includes/header.php';
             <?php if (strtolower($lot_info['name']) === 'lulu mall'): ?>
                 <!-- 3D Map Link for Lulu Mall -->
                 <div style="margin:15px 0; text-align:center;">
-                    <a href="lulu_map.php" target="_blank" class="btn" style="background: linear-gradient(90deg, #39ff14, #00d2ff); color: #000; font-weight:800; border:none; width:100%; max-width:600px; display:inline-block; padding:12px 24px;">
+                    <a href="lulu_map.php" target="_blank" class="btn">
                         🗺️ VIEW LULU MALL LIVE 3D MAP
                     </a>
                     <p style="font-size:0.85rem; color:var(--muted); margin-top:8px;">Opens in a new tab - Real-time floor visualization</p>
@@ -225,83 +225,127 @@ include 'includes/header.php';
             <?php endif; ?>
 
             <!-- The Map -->
-            <div style="
-                display: grid; 
-                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); 
-                gap: 10px; 
-                margin-top:20px; 
-                background: #333; 
-                padding: 20px; 
-                border-radius: 8px;
-            ">
-                <?php foreach ($slots as $s): ?>
-                    <?php 
-                        if ($s['is_maintenance']) {
-                            // Maintenance: Dark Gray/Metallic with Striped effect maybe? Keeping simple gray glass.
-                            $bg = 'rgba(255, 255, 255, 0.05)'; 
-                            $border = 'var(--muted)'; 
-                            $cursor = 'not-allowed';
-                            $text_color = 'var(--muted)';
-                        } elseif (!$s['is_available']) {
-                            // Occupied: Red Glass
-                            $bg = 'rgba(220, 53, 69, 0.2)'; // Red tint
-                            $border = '#dc3545'; 
-                            $cursor = 'not-allowed';
-                            $text_color = '#ff6b6b';
-                        } else {
-                            // Available: Neon Green/Cyan Glass
-                            $bg = 'rgba(16, 185, 129, 0.1)'; 
-                            $border = '#10b981'; 
-                            $cursor = 'pointer';
-                            $text_color = '#34d399';
-                        }
-                    ?>
-                    
-                    <?php if ($s['is_available']): ?>
-                        <!-- Form for booking logic -->
-                        <form method="post" style="margin:0;">
-                            <input type="hidden" name="action" value="book_slot">
-                            <input type="hidden" name="slot_id" value="<?php echo $s['id']; ?>">
-                            <input type="hidden" name="lot_id" value="<?php echo $selected_lot_id; ?>">
-                            <input type="hidden" name="start_time" value="<?php echo htmlspecialchars($start_time); ?>">
-                            <input type="hidden" name="end_time" value="<?php echo htmlspecialchars($end_time); ?>">
-                            
-                            <button type="submit" style="
-                                width:100%; height:80px; 
-                                background:<?php echo $bg; ?>; 
-                                border:1px solid <?php echo $border; ?>; 
-                                border-radius:8px; 
-                                cursor:<?php echo $cursor; ?>;
-                                display:flex; flex-direction:column; justify-content:center; align-items:center;
-                                padding:0;
-                                transition: all 0.3s ease;
-                                backdrop-filter: blur(4px);
-                                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                            " title="Click to Book" onmouseover="this.style.boxShadow='0 0 15px <?php echo $border; ?>'; this.style.borderColor='white';" onmouseout="this.style.boxShadow='none'; this.style.borderColor='<?php echo $border; ?>';">
-                                <strong style="font-size:1.1rem; color:<?php echo $text_color; ?>;"><?php echo htmlspecialchars($s['slot_number']); ?></strong>
-                                <span style="font-size:0.7rem; color:<?php echo $text_color; ?>; font-weight:bold; letter-spacing:1px; margin-top:4px;">OPEN</span>
-                            </button>
-                        </form>
-                    <?php else: ?>
-                        <!-- Static Div for unavailable -->
-                        <div style="
-                            width:100%; height:80px; 
-                            background:<?php echo $bg; ?>; 
-                            border:1px solid <?php echo $border; ?>; 
-                            border-radius:8px; 
-                            cursor:<?php echo $cursor; ?>;
-                            display:flex; flex-direction:column; justify-content:center; align-items:center;
-                            opacity: 0.7;
-                        ">
-                            <strong style="font-size:1.1rem; color:<?php echo $text_color; ?>;"><?php echo htmlspecialchars($s['slot_number']); ?></strong>
-                            <?php if ($s['is_maintenance']): ?>
-                                <span style="font-size:0.7rem; color:var(--muted); letter-spacing:1px; margin-top:4px;">MAINT</span>
-                            <?php else: ?>
-                                <span style="font-size:0.7rem; color:<?php echo $text_color; ?>; letter-spacing:1px; margin-top:4px;">BUSY</span>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
+            <?php
+                // Group slots by floor
+                $slots_by_floor = [];
+                foreach ($slots as $s) {
+                    $lvl = $s['floor_level'] ?? 'Other'; 
+                    $slots_by_floor[$lvl][] = $s;
+                }
 
+                // Fetch floor order to sort them correctly
+                $floor_order_map = [];
+                try {
+                    $f_stmt = $pdo->prepare("SELECT floor_name, floor_order FROM parking_floors WHERE lot_id = ? ORDER BY floor_order ASC");
+                    $f_stmt->execute([$selected_lot_id]);
+                    $defined_floors = $f_stmt->fetchAll();
+                    foreach ($defined_floors as $df) {
+                        $floor_order_map[$df['floor_name']] = $df['floor_order'];
+                    }
+                } catch (Exception $e) { /* Ignore if table missing */ }
+
+                // Sort keys (floors) based on order map
+                uksort($slots_by_floor, function($a, $b) use ($floor_order_map) {
+                    $oa = $floor_order_map[$a] ?? 999;
+                    $ob = $floor_order_map[$b] ?? 999;
+                    if ($oa == $ob) return strnatcmp($a, $b);
+                    return $oa <=> $ob;
+                });
+            ?>
+
+            <div style="margin-top:20px; display:flex; flex-direction:column; gap:30px;">
+                <?php foreach ($slots_by_floor as $floor_name => $floor_slots): ?>
+                    <div class="floor-section">
+                        <h4 style="
+                            margin:0 0 10px 0; 
+                            color: #888888;
+                            display:inline-block; font-size:1.4rem;
+                            border-bottom: 1px solid var(--input-border);
+                            padding-bottom: 5px;
+                        ">
+                            <?php echo htmlspecialchars($floor_name === 'Other' ? 'Unassigned' : "Floor $floor_name"); ?>
+                        </h4>
+                        
+                        <div style="
+                            display: grid; 
+                            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); 
+                            gap: 10px; 
+                            background: rgba(0,0,0,0.02); 
+                            padding: 20px; 
+                            border-radius: 16px;
+                            border: 1px solid var(--input-border);
+                        ">
+                            <?php foreach ($floor_slots as $s): ?>
+                                <?php 
+                                    if ($s['is_maintenance']) {
+                                        // Maintenance: Light Gray
+                                        $bg = 'rgba(0, 0, 0, 0.05)'; 
+                                        $border = 'var(--muted)'; 
+                                        $cursor = 'not-allowed';
+                                        $text_color = 'var(--muted)';
+                                    } elseif (!$s['is_available']) {
+                                        // Occupied: Soft Red
+                                        $bg = 'rgba(220, 53, 69, 0.1)'; 
+                                        $border = '#f8d7da'; 
+                                        $cursor = 'not-allowed';
+                                        $text_color = '#dc3545';
+                                    } else {
+                                        // Available: Soft Green
+                                        $bg = 'rgba(16, 185, 129, 0.1)'; 
+                                        $border = '#d1fae5'; 
+                                        $cursor = 'pointer';
+                                        $text_color = '#059669';
+                                    }
+                                ?>
+                                
+                                <?php if ($s['is_available']): ?>
+                                    <!-- Form for booking logic -->
+                                    <form method="post" style="margin:0;">
+                                        <input type="hidden" name="action" value="book_slot">
+                                        <input type="hidden" name="slot_id" value="<?php echo $s['id']; ?>">
+                                        <input type="hidden" name="lot_id" value="<?php echo $selected_lot_id; ?>">
+                                        <input type="hidden" name="start_time" value="<?php echo htmlspecialchars($start_time); ?>">
+                                        <input type="hidden" name="end_time" value="<?php echo htmlspecialchars($end_time); ?>">
+                                        
+                                        <button type="submit" style="
+                                            width:100%; height:80px; 
+                                            background:<?php echo $bg; ?>; 
+                                            border:1px solid <?php echo $border; ?>; 
+                                            border-radius:8px; 
+                                            cursor:<?php echo $cursor; ?>;
+                                            display:flex; flex-direction:column; justify-content:center; align-items:center;
+                                            padding:0;
+                                            transition: all 0.3s ease;
+                                            backdrop-filter: blur(4px);
+                                            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+                                        " title="Click to Book" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.02)';">
+                                            <strong style="font-size:1.1rem; color:<?php echo $text_color; ?>;"><?php echo htmlspecialchars($s['slot_number']); ?></strong>
+                                            <span style="font-size:0.7rem; color:<?php echo $text_color; ?>; font-weight:bold; letter-spacing:1px; margin-top:4px;">OPEN</span>
+                                        </button>
+                                    </form>
+                                <?php else: ?>
+                                    <!-- Static Div for unavailable -->
+                                    <div style="
+                                        width:100%; height:80px; 
+                                        background:<?php echo $bg; ?>; 
+                                        border:1px solid <?php echo $border; ?>; 
+                                        border-radius:8px; 
+                                        cursor:<?php echo $cursor; ?>;
+                                        display:flex; flex-direction:column; justify-content:center; align-items:center;
+                                        opacity: 0.7;
+                                    ">
+                                        <strong style="font-size:1.1rem; color:<?php echo $text_color; ?>;"><?php echo htmlspecialchars($s['slot_number']); ?></strong>
+                                        <?php if ($s['is_maintenance']): ?>
+                                            <span style="font-size:0.7rem; color:var(--muted); letter-spacing:1px; margin-top:4px;">MAINT</span>
+                                        <?php else: ?>
+                                            <span style="font-size:0.7rem; color:<?php echo $text_color; ?>; letter-spacing:1px; margin-top:4px;">BUSY</span>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
                 <?php endforeach; ?>
             </div>
             

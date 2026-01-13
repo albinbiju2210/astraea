@@ -118,20 +118,49 @@ include 'includes/header.php';
             <input type="hidden" name="action" value="add_slot">
             <h3 style="margin-top:0">Add New Slot</h3>
             <div style="display:flex; gap:10px; align-items: center;">
-                <select class="input" name="lot_id" required style="margin:0; width: auto; min-width: 200px;">
+                <select class="input" id="lotSelect" name="lot_id" required style="margin:0; width: auto; min-width: 200px;" onchange="updateFloors()">
                     <option value="">Select Lot...</option>
                     <?php foreach ($lots as $l): ?>
                         <option value="<?php echo $l['id']; ?>"><?php echo htmlspecialchars($l['name']); ?></option>
                     <?php endforeach; ?>
                 </select>
-                <select class="input" name="floor_level" required style="margin:0; width: auto; min-width: 120px;">
+                
+                <select class="input" id="floorSelect" name="floor_level" required style="margin:0; width: auto; min-width: 120px;">
                     <option value="">Level...</option>
-                    <option value="B1">Basement 1</option>
-                    <option value="G">Ground</option>
-                    <option value="L1">Level 1</option>
-                    <option value="L2">Level 2</option>
-                    <option value="L3">Level 3</option>
+                    <!-- Floors populated via JS -->
                 </select>
+
+                <?php 
+                    // Fetch all floors for JS usage
+                    $all_floors = $pdo->query("SELECT * FROM parking_floors ORDER BY floor_order ASC")->fetchAll();
+                ?>
+                <script>
+                    const floors = <?php echo json_encode($all_floors); ?>;
+                    function updateFloors() {
+                        const lotId = document.getElementById('lotSelect').value;
+                        const floorSelect = document.getElementById('floorSelect');
+                        floorSelect.innerHTML = '<option value="">Level...</option>';
+                        
+                        const pertinentFloors = floors.filter(f => f.lot_id == lotId);
+                        
+                        if (pertinentFloors.length > 0) {
+                            pertinentFloors.forEach(f => {
+                                const opt = document.createElement('option');
+                                opt.value = f.floor_name;
+                                opt.textContent = f.floor_name;
+                                floorSelect.appendChild(opt);
+                            });
+                        } else {
+                            // Fallback if no specific structure defined
+                            ['B3','B2','B1','G','L1','L2','L3','L4','L5'].forEach(lvl => {
+                                const opt = document.createElement('option');
+                                opt.value = lvl;
+                                opt.textContent = lvl;
+                                floorSelect.appendChild(opt);
+                            });
+                        }
+                    }
+                </script>
                 <input class="input" name="slot_number" placeholder="Slot # (e.g. A-101)" required style="margin:0">
                 <button class="btn" type="submit" style="margin:0; width:auto;">Add Slot</button>
             </div>
@@ -170,15 +199,18 @@ include 'includes/header.php';
                                     <input type="hidden" name="action" value="toggle_maintenance">
                                     <input type="hidden" name="slot_id" value="<?php echo $s['id']; ?>">
                                     <input type="hidden" name="current_status" value="<?php echo $s['is_maintenance']; ?>">
-                                    <button class="small-btn" style="border-color:orange; color:darkorange;">
-                                        <?php echo $s['is_maintenance'] ? 'Enable' : 'Disable (Maint)'; ?>
+                                    <button class="small-btn btn-warning" title="Toggle Maintenance">
+                                        <?php echo $s['is_maintenance'] ? 'Enable' : 'Maint'; ?>
                                     </button>
                                 </form>
+                                
+                                <a href="edit_slot.php?id=<?php echo $s['id']; ?>" class="small-btn btn-secondary" title="Edit Slot">Edit</a>
+
                                 <!-- Delete -->
                                 <form method="post" onsubmit="return confirm('Delete this slot?');" style="display:inline;">
                                     <input type="hidden" name="action" value="delete_slot">
                                     <input type="hidden" name="slot_id" value="<?php echo $s['id']; ?>">
-                                    <button class="small-btn" style="border-color:#b00020; color:#b00020;">&#10005;</button>
+                                    <button class="small-btn btn-danger" title="Delete Slot">&#10005;</button>
                                 </form>
                             </td>
                         </tr>

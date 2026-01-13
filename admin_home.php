@@ -70,7 +70,7 @@ try {
             <span class="slider"></span>
           </label>
 
-          <a href="logout.php" class="small-btn" style="border-color:rgba(255,255,255,0.2); color:white;">Logout</a>
+          <a href="logout.php" class="small-btn">Logout</a>
       </div>
   </nav>
 
@@ -122,7 +122,7 @@ try {
               </div>
               <div style="flex:2; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
                   <a href="manage_slots.php" class="btn" style="width:auto; margin:0;">Manage Slots</a>
-                  <a href="manage_bookings.php" class="btn" style="width:auto; margin:0; background: rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.1);">All Bookings</a>
+                  <a href="manage_bookings.php" class="btn btn-secondary" style="width:auto; margin:0;">All Bookings</a>
                   <a href="fix_admin_password.php" class="small-btn" style="margin:0;">Reset Admin PW</a>
               </div>
           </div>

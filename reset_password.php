@@ -44,21 +44,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<!doctype html><html><head><meta charset="utf-8"><title>Reset Password</title></head>
-<body style="font-family:Arial;background:#f4f6f8;padding:20px">
-  <div style="max-width:520px;margin:40px auto;background:#fff;padding:20px;border-radius:8px">
+// include shared header
+include 'includes/header.php';
+?>
+<div class="page-center">
+  <div class="card">
     <h2>Reset Password</h2>
-    <?php if ($err): ?><div style="color:#b00020"><?php echo htmlspecialchars($err); ?></div><?php endif; ?>
-    <?php if ($success): ?><div style="color:green"><?php echo $success; ?></div><?php endif; ?>
-
-    <?php if (!$success): ?>
-      <form method="post">
-        <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
-        <input name="password" type="password" placeholder="New password" required style="width:100%;padding:8px;margin:8px 0"><br>
-        <input name="password_confirm" type="password" placeholder="Confirm new password" required style="width:100%;padding:8px;margin:8px 0"><br>
-        <button type="submit" style="padding:10px 14px;background:#0b79ff;color:#fff;border:none;border-radius:4px">Set New Password</button>
-      </form>
+    
+    <?php if ($err): ?>
+        <div class="msg-error"><?php echo htmlspecialchars($err); ?></div>
     <?php endif; ?>
-
+    
+    <?php if ($success): ?>
+        <div class="msg-success"><?php echo $success; ?></div>
+    <?php else: ?>
+        <div class="lead">Create a new secure password.</div>
+        <form method="post">
+            <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
+            <input class="input" name="password" type="password" placeholder="New Password" required>
+            <input class="input" name="password_confirm" type="password" placeholder="Confirm New Password" required>
+            <button class="btn mt-4" type="submit">Set New Password</button>
+        </form>
+    <?php endif; ?>
   </div>
-</body></html>
+</div>
+<?php include 'includes/footer.php'; ?>

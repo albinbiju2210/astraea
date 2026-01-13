@@ -78,7 +78,7 @@ include __DIR__ . '/includes/header.php';
       <input class="input" name="phone" type="text" placeholder="Phone Number" required value="<?php echo htmlspecialchars($_POST['phone'] ?? ''); ?>">
       <input class="input" name="password" type="password" placeholder="Password" required>
       <input class="input" name="password_confirm" type="password" placeholder="Confirm Password" required>
-      <button class="btn" type="submit">Create Account</button>
+      <button class="btn mt-4" type="submit">Create Account</button>
     </form>
 
     <div class="footer-text" style="margin-top:14px;">

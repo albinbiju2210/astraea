@@ -68,20 +68,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-<!doctype html><html><head><meta charset="utf-8"><title>Forgot Password</title></head>
-<body style="font-family:Arial;background:#f4f6f8;padding:20px">
-  <div style="max-width:520px;margin:40px auto;background:#fff;padding:20px;border-radius:8px">
-    <h2>Forgot Password</h2>
-    <p>Enter your account email to receive reset instructions.</p>
+// include shared header
+include 'includes/header.php';
+?>
+<div class="page-center">
+  <div class="card">
+    <div class="flex-between">
+        <h2>Forgot Password</h2>
+        <a href="index.php" class="small-btn">Back</a>
+    </div>
+    <div class="lead">Enter your email to receive reset instructions.</div>
 
-    <?php if ($error): ?><div style="color:#b00020"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
-    <?php if ($info): ?><div style="color:green"><?php echo $info; ?></div><?php endif; ?>
+    <?php if ($error): ?>
+      <div class="msg-error"><?php echo htmlspecialchars($error); ?></div>
+    <?php endif; ?>
+
+    <?php if ($info): ?>
+      <div class="msg-success"><?php echo $info; ?></div>
+    <?php endif; ?>
 
     <form method="post">
-      <input name="email" type="email" placeholder="Email" required style="width:100%;padding:8px;margin:8px 0"><br>
-      <button type="submit" style="padding:10px 14px;background:#0b79ff;color:#fff;border:none;border-radius:4px">Send Reset Link</button>
+      <input class="input" name="email" type="email" placeholder="Email Address" required>
+      <button class="btn mt-4" type="submit">Send Reset Link</button>
     </form>
-
-    <p style="margin-top:12px"><a href="index.php">Back to login</a></p>
   </div>
-</body></html>
+</div>
+<?php include 'includes/footer.php'; ?>

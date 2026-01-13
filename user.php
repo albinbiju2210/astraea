@@ -18,34 +18,43 @@ $stmt->execute([$userId]);
 $user = $stmt->fetch();
 
 if (!$user) {
-    // Shouldn't happen; logout to be safe
     header('Location: logout.php');
     exit;
 }
+
+include 'includes/header.php';
 ?>
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>My Profile - Astraea</title>
-  <style>body{font-family:Arial;background:#f4f6f8;padding:30px} .card{max-width:640px;margin:0 auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.06)}</style>
-</head>
-<body>
+<div class="page-center">
   <div class="card">
-    <a href="logout.php" style="float:right;color:#c00;text-decoration:none">Logout</a>
-    <h2>My Profile</h2>
+    <div class="flex-between">
+        <h2>My Profile</h2>
+        <a href="home.php" class="small-btn">Back</a>
+    </div>
 
-    <table style="width:100%;border-collapse:collapse">
-      <tr><td><strong>Name</strong></td><td><?php echo htmlspecialchars($user['name']); ?></td></tr>
-      <tr><td><strong>Email</strong></td><td><?php echo htmlspecialchars($user['email']); ?></td></tr>
-      <tr><td><strong>Phone</strong></td><td><?php echo htmlspecialchars($user['phone'] ?? '—'); ?></td></tr>
-      <tr><td><strong>Member since</strong></td><td><?php echo htmlspecialchars($user['created_at']); ?></td></tr>
-    </table>
+    <!-- User Details Table -->
+    <div style="text-align:left; margin:20px 0; background:rgba(255,255,255,0.4); padding:20px; border-radius:12px;">
+        <div style="margin-bottom:10px;">
+            <strong style="color:var(--muted); font-size:0.9rem;">Name</strong><br>
+            <span style="font-size:1.1rem; color:var(--heading-text); font-weight:600;"><?php echo htmlspecialchars($user['name']); ?></span>
+        </div>
+        <div style="margin-bottom:10px;">
+            <strong style="color:var(--muted); font-size:0.9rem;">Email</strong><br>
+            <span><?php echo htmlspecialchars($user['email']); ?></span>
+        </div>
+        <div style="margin-bottom:10px;">
+            <strong style="color:var(--muted); font-size:0.9rem;">Phone</strong><br>
+            <span><?php echo htmlspecialchars($user['phone'] ?? '—'); ?></span>
+        </div>
+        <div>
+            <strong style="color:var(--muted); font-size:0.9rem;">Member Since</strong><br>
+            <span><?php echo date('F j, Y', strtotime($user['created_at'])); ?></span>
+        </div>
+    </div>
 
-    <p style="margin-top:20px">
-      <a href="change_password.php">Change Password</a> |
-      <a href="forgot_password.php">Forgot Password</a>
-    </p>
+    <div style="display:flex; flex-direction:column;">
+        <a href="change_password.php" class="btn">Change Password</a>
+        <a href="logout.php" class="btn btn-secondary mt-3">Logout</a>
+    </div>
   </div>
-</body>
-</html>
+</div>
+<?php include 'includes/footer.php'; ?>

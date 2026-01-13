@@ -70,7 +70,7 @@ $lots = $pdo->query("SELECT * FROM parking_lots")->fetchAll();
       <div class="nav-items">
           <span style="color:var(--text); font-weight:500;"><?php echo htmlspecialchars($_SESSION['admin_name']); ?></span>
           <a href="admin_home.php" class="small-btn">Dashboard</a>
-          <a href="logout.php" class="small-btn" style="border-color:rgba(255,255,255,0.2); color:white;">Logout</a>
+          <a href="logout.php" class="small-btn">Logout</a>
       </div>
   </nav>
 

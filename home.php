@@ -53,7 +53,7 @@ $history_count = $hist_stmt->fetchColumn();
             <span class="slider"></span>
           </label>
 
-          <a href="logout.php" class="small-btn" style="border-color:rgba(255,255,255,0.2); color:white;">Logout</a>
+          <a href="logout.php" class="small-btn">Logout</a>
       </div>
   </nav>
 

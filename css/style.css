@@ -176,10 +176,12 @@ h3 {
 }
 
 /* Buttons */
+/* Buttons */
+/* Buttons */
 .btn {
   width: 100%;
   padding: 16px;
-  margin-top: 20px;
+  /* Removed default margin-top: 20px; handled via layout or utilities */
   border-radius: 16px;
   border: 1px solid #ffffff;
   /* Pearl Borer */
@@ -191,6 +193,12 @@ h3 {
   letter-spacing: 0.02em;
   transition: all 0.3s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  text-decoration: none;
+  display: inline-flex;
+  /* Use flex for internal alignment */
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
 }
 
 .btn:hover {
@@ -203,6 +211,54 @@ h3 {
   transform: translateY(0);
 }
 
+/* Button Variants */
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: var(--text);
+}
+
+.btn-danger {
+  background: rgba(254, 242, 242, 0.9);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+
+.btn-danger:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+.btn-warning {
+  background: rgba(255, 251, 235, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #d97706;
+}
+
+.btn-warning:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.btn-success {
+  background: rgba(235, 250, 240, 0.9);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #059669;
+}
+
+.btn-success:hover {
+  background: #d1fae5;
+  border-color: #10b981;
+}
+
+/* Secondary Button */
+/* Secondary Button */
 /* Secondary Button */
 .small-btn {
   padding: 8px 16px;
@@ -212,7 +268,9 @@ h3 {
   color: var(--text);
   cursor: pointer;
   text-decoration: none;
-  display: inline-block;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
   font-size: 0.85rem;
   transition: all 0.2s;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
@@ -222,6 +280,40 @@ h3 {
   background: #ffffff;
   border-color: #d1d1d6;
   transform: translateY(-1px);
+}
+
+/* Small Button Variants */
+.small-btn.btn-danger {
+  background: rgba(254, 242, 242, 0.9);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+
+.small-btn.btn-danger:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+.small-btn.btn-warning {
+  background: rgba(255, 251, 235, 0.9);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #d97706;
+}
+
+.small-btn.btn-warning:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.small-btn.btn-secondary {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.4);
+  color: var(--text);
+}
+
+.small-btn.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: #ffffff;
 }
 
 a.link {
@@ -307,6 +399,30 @@ input:checked+.slider:before {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.mt-1 {
+  margin-top: 5px;
+}
+
+.mt-2 {
+  margin-top: 10px;
+}
+
+.mt-3 {
+  margin-top: 15px;
+}
+
+.mt-4 {
+  margin-top: 20px;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+.w-auto {
+  width: auto;
 }
 
 /* Scrollbar (Minimal Grey) */

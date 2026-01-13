@@ -100,14 +100,16 @@ include 'includes/header.php';
                             <td style="padding:10px;"><?php echo htmlspecialchars($lot['name']); ?></td>
                             <td style="padding:10px;"><?php echo htmlspecialchars($lot['address']); ?></td>
                             <td style="padding:10px; text-align:right;">
+                                <a href="manage_structure.php?lot_id=<?php echo $lot['id']; ?>" class="small-btn btn-secondary" style="margin-right:5px;">Design Structure</a>
+                                
                                 <?php if (!isset($_SESSION['admin_lot_id']) || $_SESSION['admin_lot_id'] === null): ?>
                                     <form method="post" onsubmit="return confirm('Delete this lot? All slots within it will be removed.');" style="display:inline;">
                                         <input type="hidden" name="action" value="delete_lot">
                                         <input type="hidden" name="lot_id" value="<?php echo $lot['id']; ?>">
-                                        <button class="small-btn" style="border-color:#b00020; color:#b00020; font-size:0.8rem;">Delete</button>
+                                        <button class="small-btn btn-danger" style="font-size:0.8rem;">Delete</button>
                                     </form>
                                 <?php else: ?>
-                                    <span style="color:var(--muted); font-size:0.8rem;">ReadOnly</span>
+                                    <span style="color:var(--muted); font-size:0.8rem;">(Admin)</span>
                                 <?php endif; ?>
                             </td>
                         </tr>

@@ -112,7 +112,7 @@ include 'includes/header.php';
                                         <input type="hidden" name="action" value="cancel_booking">
                                         <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
                                         <input type="hidden" name="slot_id" value="<?php echo $b['slot_id']; ?>">
-                                        <button class="small-btn" style="border-color:#b00020; color:#b00020;">Cancel</button>
+                                        <button class="small-btn btn-danger">Cancel</button>
                                     </form>
                                 <?php else: ?>
                                     <span style="color:var(--muted);">-</span>
