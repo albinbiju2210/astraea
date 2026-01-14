@@ -39,11 +39,21 @@ try {
         ");
         $stats['active_bookings']->execute([$lotId]);
         $stats['active_bookings'] = $stats['active_bookings']->fetchColumn();
+
+        $stats['overdue_bookings'] = $pdo->prepare("
+            SELECT COUNT(*) FROM bookings b 
+            JOIN parking_slots s ON b.slot_id = s.id 
+            WHERE b.status = 'active' AND b.end_time < NOW() AND s.lot_id = ?
+        ");
+        $stats['overdue_bookings']->execute([$lotId]);
+        $stats['overdue_bookings'] = $stats['overdue_bookings']->fetchColumn();
+
     } else {
         // Super Admin
         $stats['lots']  = $pdo->query("SELECT COUNT(*) FROM parking_lots")->fetchColumn();
         $stats['slots'] = $pdo->query("SELECT COUNT(*) FROM parking_slots")->fetchColumn();
         $stats['active_bookings'] = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'active'")->fetchColumn();
+        $stats['overdue_bookings'] = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'active' AND end_time < NOW()")->fetchColumn();
     }
 } catch (Exception $e) { /* ignore */ }
 
@@ -105,6 +115,17 @@ try {
               <a href="manage_bookings.php" class="link" style="margin-top:10px; display:inline-block;">View Live &rarr;</a>
           </div>
 
+          <?php if($stats['overdue_bookings'] > 0): ?>
+          <div class="stat-card" style="border-left: 5px solid #dc3545;">
+              <div>
+                  <h3 style="color:#dc3545">Overdue / Penalty</h3>
+                  <div class="stat-value" style="color:#dc3545"><?php echo $stats['overdue_bookings']; ?></div>
+                  <p>Bookings exceeded time limit.</p>
+              </div>
+              <a href="manage_bookings.php?filter=overdue" class="link" style="margin-top:10px; display:inline-block; color:#dc3545;">Take Action &rarr;</a>
+          </div>
+          <?php endif; ?>
+
           <div class="stat-card">
               <div>
                   <h3>Parking Lots</h3>
@@ -114,16 +135,14 @@ try {
               <a href="manage_lots.php" class="link" style="margin-top:10px; display:inline-block;">Manage Structure &rarr;</a>
           </div>
 
-          <!-- Quick Actions Panel -->
-          <div class="stat-card" style="grid-column: 1 / -1; min-height: auto; flex-direction:row; align-items:center; flex-wrap:wrap; gap:20px;">
               <div style="flex:1; min-width:200px;">
                   <h3>System Actions</h3>
                   <p>Quick links to administrative tools.</p>
               </div>
               <div style="flex:2; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
-                  <a href="manage_slots.php" class="btn" style="width:auto; margin:0;">Manage Slots</a>
+                  <a href="manage_slots.php" class="btn btn-secondary" style="width:auto; margin:0;">Manage Slots</a>
                   <a href="manage_bookings.php" class="btn btn-secondary" style="width:auto; margin:0;">All Bookings</a>
-                  <a href="fix_admin_password.php" class="small-btn" style="margin:0;">Reset Admin PW</a>
+                  <a href="admin_reports.php" class="btn" style="width:auto; margin:0;">Reports & Logs</a>
               </div>
           </div>
 

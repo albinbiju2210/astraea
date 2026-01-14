@@ -35,10 +35,26 @@ if (!$booking) {
 }
 
 $target_slot_id = $booking['slot_id'];
-$lot_id = $booking['lot_id'];
-$target_floor = $booking['floor_level'] ?? 'G';
+// 2. Fetch Defined Structure & Order
+$floor_map = []; // 'G' => 0, 'L1' => 1
+$stmt_floors = $pdo->prepare("SELECT floor_name, floor_order FROM parking_floors WHERE lot_id = ? ORDER BY floor_order ASC");
+$stmt_floors->execute([$lot_id]);
+$defined_floors = $stmt_floors->fetchAll();
 
-// 2. Fetch All Slots for this Lot to build the map
+foreach ($defined_floors as $df) {
+    $floor_map[$df['floor_name']] = $df['floor_order'];
+}
+
+// 3. Fetch Lot Config (Colors)
+$stmt_lot = $pdo->prepare("SELECT config FROM parking_lots WHERE id = ?");
+$stmt_lot->execute([$lot_id]);
+$lot_data = $stmt_lot->fetch();
+$lot_config = [];
+if ($lot_data && !empty($lot_data['config'])) {
+    $lot_config = json_decode($lot_data['config'], true);
+}
+
+// 3. Fetch All Slots for this Lot to build the map
 $stmt_slots = $pdo->prepare("SELECT id, slot_number, floor_level, is_occupied FROM parking_slots WHERE lot_id = ? ORDER BY floor_level ASC, slot_number ASC");
 $stmt_slots->execute([$lot_id]);
 $all_slots = $stmt_slots->fetchAll();
@@ -47,7 +63,9 @@ $all_slots = $stmt_slots->fetchAll();
 $js_data = [
     'target_slot_id' => $target_slot_id,
     'target_floor' => $target_floor,
-    'slots' => $all_slots
+    'slots' => $all_slots,
+    'floor_structure' => $floor_map,
+    'config' => $lot_config
 ];
 ?>
 <!DOCTYPE html>
@@ -173,15 +191,40 @@ $js_data = [
 
     const parkingData = <?php echo json_encode($js_data); ?>;
     
+    const config = parkingData.config || {};
+    
+    // Config Defaults
+    const colors = {
+        wall: config.wall_color || '#050510',
+        floor: config.floor_color || '#1a1a2e',
+        road: config.road_color || '#2a2a3e',
+        text: config.text_color || '#00ffff',
+        open: config.slot_open_color || '#00aaff',
+        occupied: config.slot_occupied_color || '#ff0055',
+        neon: parseFloat(config.neon_intensity || 0.5)
+    };
+    
+    // Layout Config
+    const layout = {
+        entranceX: parseFloat(config.path_entrance_x || -55),
+        rampX: parseFloat(config.path_ramp_x || -45),
+        laneZ: parseFloat(config.path_lane_offset || 12.5)
+    };
+
     // SCENE SETUP
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x050510);
-    scene.fog = new THREE.FogExp2(0x050510, 0.008);
+    if (isMinimal) {
+        scene.background = new THREE.Color(0xf0f0f5);
+        scene.fog = new THREE.FogExp2(0xf0f0f5, 0.008);
+    } else {
+        scene.background = new THREE.Color(colors.wall);
+        scene.fog = new THREE.FogExp2(colors.wall, 0.008);
+    }
 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 120, 120);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: !isMinimal });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
@@ -189,60 +232,64 @@ $js_data = [
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2.05; 
-    controls.minDistance = 20;
-    controls.maxDistance = 200;
-
+    
     // LIGHTING
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); 
+    const ambientLight = new THREE.AmbientLight(0xffffff, isMinimal ? 0.8 : 0.5); 
     scene.add(ambientLight);
 
-    const spotLight = new THREE.SpotLight(0xff00ff, 100);
-    spotLight.position.set(-50, 60, 20);
-    spotLight.angle = 0.5;
-    scene.add(spotLight);
+    if (!isMinimal) {
+        // Spotlight near entrance
+        const spotLight = new THREE.SpotLight(0xff00ff, 100 * colors.neon);
+        spotLight.position.set(layout.entranceX, 60, 20); // Dynamic position
+        spotLight.angle = 0.5;
+        scene.add(spotLight);
+    }
 
-    const dirLight = new THREE.DirectionalLight(0xaaccff, 1.5);
+    const dirLight = new THREE.DirectionalLight(0xaaccff, isMinimal ? 1 : 1.5);
     dirLight.position.set(20, 80, -20);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
     scene.add(dirLight);
-
+    
     // ENVIRONMENT
-    const gridHelper = new THREE.GridHelper(300, 60, 0xff00ff, 0x222244);
-    gridHelper.position.y = 0.05;
-    scene.add(gridHelper);
+    if (!isMinimal) {
+        const gridHelper = new THREE.GridHelper(300, 60, colors.text, 0x222244);
+        gridHelper.position.y = 0.05;
+        scene.add(gridHelper);
+    }
 
     const planeGeo = new THREE.PlaneGeometry(500, 500);
     const planeMat = new THREE.MeshStandardMaterial({ 
-        color: 0x0a0a12, 
+        color: isMinimal ? 0xffffff : 0x0a0a12, 
         roughness: 0.2, 
-        metalness: 0.8,
+        metalness: isMinimal ? 0.1 : 0.8,
         transparent: true,
-        opacity: 0.4 // Allow seeing underground floors
+        opacity: 0.4
     });
     const plane = new THREE.Mesh(planeGeo, planeMat);
     plane.rotation.x = -Math.PI / 2;
     plane.receiveShadow = true;
     scene.add(plane);
-
+    
     // MULTI-FLOOR PARKING LOT
     const slotWidth = 4;
     const slotDepth = 6;
-    const roadWidth = 12;
+    const roadWidth = Math.abs(layout.laneZ * 2) - slotDepth; // Approx geometry
     const floorHeight = 15;
     const slots = parkingData.slots;
     const targetId = parkingData.target_slot_id;
     const targetFloorLevel = parkingData.target_floor;
     let targetPosition = new THREE.Vector3();
 
-    const floorMap = { 'B1': -1, 'G': 0, 'L1': 1, 'L2': 2, 'L3': 3 };
+    const floorMap = Object.keys(parkingData.floor_structure).length > 0 
+        ? parkingData.floor_structure 
+        : { 'B1': -1, 'G': 0, 'L1': 1, 'L2': 2, 'L3': 3 };
 
     const slotsByFloor = {};
+    const hasStructure = Object.keys(parkingData.floor_structure).length > 0;
+
     slots.forEach(slot => {
         const floor = slot.floor_level || 'G';
+        if (hasStructure && floorMap[floor] === undefined) return;
         if (!slotsByFloor[floor]) slotsByFloor[floor] = [];
         slotsByFloor[floor].push(slot);
     });
@@ -257,7 +304,7 @@ $js_data = [
             // Floor platform
             const floorPlatformGeo = new THREE.BoxGeometry(100, 0.5, 60);
             const floorPlatformMat = new THREE.MeshStandardMaterial({ 
-                color: 0x1a1a2e, 
+                color: new THREE.Color(colors.floor), 
                 roughness: 0.3,
                 metalness: 0.7
             });
@@ -272,21 +319,20 @@ $js_data = [
                 size: 3,
                 height: 0.5
             });
-            const textMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+            const textMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(colors.text) });
             const textMesh = new THREE.Mesh(textGeo, textMat);
-            textMesh.position.set(-55, yOffset + 8, -25);
+            textMesh.position.set(layout.entranceX, yOffset + 8, -25);
             textMesh.rotation.y = Math.PI / 4;
             scene.add(textMesh);
 
-            // Create slots
             floorSlots.forEach((slot, index) => {
                 const isTopRow = index % 2 === 0;
                 const pairIndex = Math.floor(index / 2);
                 const xPos = (pairIndex * (slotWidth + 1)) - (floorSlots.length * (slotWidth+1) / 4);
-                const zPos = isTopRow ? -(roadWidth/2 + slotDepth/2) : (roadWidth/2 + slotDepth/2);
+                const zPos = isTopRow ? -(layout.laneZ + slotDepth/2) : (layout.laneZ + slotDepth/2);
 
                 const isTarget = (slot.id == targetId);
-                const markerColor = isTarget ? 0x00ff00 : (slot.is_occupied ? 0xff0055 : 0x00aaff);
+                const markerColor = isTarget ? 0x00ff00 : (slot.is_occupied ? new THREE.Color(colors.occupied) : new THREE.Color(colors.open));
                 
                 const boxGeo = new THREE.BoxGeometry(slotWidth, 0.1, slotDepth);
                 const edges = new THREE.EdgesGeometry(boxGeo);
@@ -329,7 +375,7 @@ $js_data = [
                 const rampGeo = new THREE.BoxGeometry(8, 0.5, 4);
                 const rampMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xffaa00, emissiveIntensity: 0.3 });
                 const ramp = new THREE.Mesh(rampGeo, rampMat);
-                ramp.position.set(-45, yOffset, 0);
+                ramp.position.set(layout.rampX, yOffset, 0);
                 scene.add(ramp);
 
                 const rampTextGeo = new TextGeometry('RAMP', {
@@ -337,9 +383,9 @@ $js_data = [
                     size: 1,
                     height: 0.2
                 });
-                const rampTextMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                const rampTextMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(colors.text) });
                 const rampTextMesh = new THREE.Mesh(rampTextGeo, rampTextMat);
-                rampTextMesh.position.set(-48, yOffset + 1, -1);
+                rampTextMesh.position.set(layout.rampX - 3, yOffset + 1, -1);
                 scene.add(rampTextMesh);
             }
         });
@@ -357,7 +403,7 @@ $js_data = [
             // Create sloped ramp geometry
             const rampGeo = new THREE.BoxGeometry(rampWidth, 0.5, rampLength);
             const rampMat = new THREE.MeshStandardMaterial({ 
-                color: 0x2a2a3e, 
+                color: new THREE.Color(colors.road), 
                 roughness: 0.7,
                 metalness: 0.3
             });
@@ -365,7 +411,7 @@ $js_data = [
             
             // Position and rotate to create slope
             const midY = (previousFloorY + currentFloorY) / 2;
-            ramp.position.set(-45, midY, 0);
+            ramp.position.set(layout.rampX, midY, 0);
             ramp.rotation.x = Math.atan(heightDiff / rampLength);
             ramp.receiveShadow = true;
             ramp.castShadow = true;
@@ -380,7 +426,7 @@ $js_data = [
             
             // Center stripe
             const centerStripe = new THREE.Mesh(stripeGeo, stripeMat);
-            centerStripe.position.set(-45, midY + 0.3, 0);
+            centerStripe.position.set(layout.rampX, midY + 0.3, 0);
             centerStripe.rotation.x = Math.atan(heightDiff / rampLength) - Math.PI / 2;
             scene.add(centerStripe);
             
@@ -389,12 +435,12 @@ $js_data = [
             const railMat = new THREE.MeshStandardMaterial({ color: 0xff6600 });
             
             const leftRail = new THREE.Mesh(railGeo, railMat);
-            leftRail.position.set(-45 - rampWidth/2, midY + 0.75, 0);
+            leftRail.position.set(layout.rampX - rampWidth/2, midY + 0.75, 0);
             leftRail.rotation.x = Math.atan(heightDiff / rampLength);
             scene.add(leftRail);
             
             const rightRail = new THREE.Mesh(railGeo, railMat);
-            rightRail.position.set(-45 + rampWidth/2, midY + 0.75, 0);
+            rightRail.position.set(layout.rampX + rampWidth/2, midY + 0.75, 0);
             rightRail.rotation.x = Math.atan(heightDiff / rampLength);
             scene.add(rightRail);
             
@@ -420,7 +466,7 @@ $js_data = [
     });
 
     function createNeonPath(targetPos, targetFloor) {
-        const entrance = new THREE.Vector3(-55, 0.5, 0);
+        const entrance = new THREE.Vector3(layout.entranceX, 0.5, 0);
         const points = [entrance];
         
         const targetFloorIndex = floorMap[targetFloor] || 0;
@@ -436,32 +482,42 @@ $js_data = [
                 const currY = i * floorHeight;
                 
                 // Entry to ramp on floor below
-                points.push(new THREE.Vector3(-45, prevY + 0.5, -12.5));
+                points.push(new THREE.Vector3(layout.rampX, prevY + 0.5, -layout.laneZ));
                 // Exit from ramp on current floor
-                points.push(new THREE.Vector3(-45, currY + 0.5, 12.5));
+                points.push(new THREE.Vector3(layout.rampX, currY + 0.5, layout.laneZ));
                 
                 // If this is the destination floor, move toward the lane
                 if (i === targetFloorIndex) {
-                    points.push(new THREE.Vector3(targetPos.x, currY + 0.5, 12.5));
+                    points.push(new THREE.Vector3(targetPos.x, currY + 0.5, layout.laneZ));
                 }
             }
         } else if (targetFloorIndex < 0) {
             // Basement logic (B1)
             const b1Y = -1 * floorHeight;
             // Entrance to basement ramp (starts on G)
-            points.push(new THREE.Vector3(-45, 0.5, 12.5));
+            points.push(new THREE.Vector3(layout.rampX, 0.5, layout.laneZ));
             // Exit from basement ramp (ends on B1)
-            points.push(new THREE.Vector3(-45, b1Y + 0.5, -12.5));
+            points.push(new THREE.Vector3(layout.rampX, b1Y + 0.5, -layout.laneZ));
             
-            points.push(new THREE.Vector3(targetPos.x, b1Y + 0.5, -12.5));
+            points.push(new THREE.Vector3(targetPos.x, b1Y + 0.5, -layout.laneZ));
         } else {
             // Ground floor (G)
-            points.push(new THREE.Vector3(-45, 0.5, 0));
+            points.push(new THREE.Vector3(layout.rampX, 0.5, 0)); // Go near ramp first?
         }
 
         // Final leg to the target slot
         const targetY = targetFloorIndex * floorHeight;
-        points.push(new THREE.Vector3(targetPos.x, targetY + 0.5, 0)); // Drive to slot lane
+        // If not G, we are already at laneZ. If G, we are at 0.
+        // But targetPos.z is the slot center.
+        
+        // Logic fix: Ensure we drive along the lane (layout.laneZ) before turning.
+        // Simplification: Always drive to targetPos.x along the laneZ axis of that floor.
+        // For G, lane is 0? 
+        // No, G layout handles laneZ too.
+        
+        // Correct path: Just connect from last point to X-aligned point.
+        points.push(new THREE.Vector3(targetPos.x, targetY + 0.5, (targetFloorIndex!==0 ? (targetFloorIndex>0?layout.laneZ:-layout.laneZ) : 0) )); 
+
         points.push(new THREE.Vector3(targetPos.x, targetY + 0.5, targetPos.z)); // Turn into slot
 
         const curve = new THREE.CatmullRomCurve3(points);
@@ -470,7 +526,8 @@ $js_data = [
         const tubeMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); 
         const tube = new THREE.Mesh(tubeGeo, tubeMat);
         scene.add(tube);
-
+        
+        // Glow, Arrow ...
         const glowGeo = new THREE.TubeGeometry(curve, 64, 0.8, 8, false);
         const glowMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.2 });
         const glowPoints = new THREE.Mesh(glowGeo, glowMat);
@@ -489,14 +546,15 @@ $js_data = [
         if(container) {
             container.innerHTML = '';
             const steps = [
-                "Enter via Main Gate (Ground Floor)."
+                "Enter via Main Gate."
             ];
             
             if (targetFloor !== 'G') {
                 steps.push(`Take the RAMP to Floor ${targetFloor}.`);
             }
             
-            steps.push(`Drive ${Math.round(Math.abs(targetPos.x - (-55)))}m along the neon line.`);
+            steps.push(`Drive ${Math.round(Math.abs(targetPos.x - layout.entranceX))}m along the neon line.`);
+
             steps.push(`Turn ${targetPos.z > 0 ? 'Right' : 'Left'} into your bay.`);
             steps.push("Park at the Green Hologram.");
             

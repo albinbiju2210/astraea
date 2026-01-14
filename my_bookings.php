@@ -96,7 +96,14 @@ include 'includes/header.php';
                     <div style="background:var(--bg); padding:15px; border-radius:var(--radius); border:1px solid var(--input-border); text-align:left;">
                         <div class="flex-between">
                             <strong><?php echo htmlspecialchars($b['lot_name']); ?></strong>
-                            <?php if($b['status']=='active'): ?>
+                            <?php 
+                                $is_overdue = ($b['status'] == 'active' && strtotime($b['end_time']) < time());
+                                $penalty = isset($b['penalty']) ? $b['penalty'] : 0;
+                            ?>
+                            
+                            <?php if($is_overdue): ?>
+                                <span style="background:#dc3545; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">OVERDUE</span>
+                            <?php elseif($b['status']=='active'): ?>
                                 <span style="background:#d4edda; color:#155724; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Active</span>
                             <?php elseif($b['status']=='cancelled'): ?>
                                 <span style="background:#f8d7da; color:#721c24; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Cancelled</span>
@@ -112,6 +119,11 @@ include 'includes/header.php';
                                     <?php echo date('M d, H:i', strtotime($b['start_time'])); ?> - 
                                     <?php echo date('H:i', strtotime($b['end_time'])); ?>
                                 </p>
+                                <?php if($penalty > 0): ?>
+                                    <p style="margin:5px 0; color:#dc3545; font-weight:bold;">
+                                        Penalty: ₹<?php echo number_format($penalty, 2); ?>
+                                    </p>
+                                <?php endif; ?>
                              </div>
                              <?php if($b['status']=='active'): ?>
                                 <div style="display:flex; gap:10px;">

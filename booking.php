@@ -226,14 +226,8 @@ include 'includes/header.php';
 
             <!-- The Map -->
             <?php
-                // Group slots by floor
-                $slots_by_floor = [];
-                foreach ($slots as $s) {
-                    $lvl = $s['floor_level'] ?? 'Other'; 
-                    $slots_by_floor[$lvl][] = $s;
-                }
-
-                // Fetch floor order to sort them correctly
+                // 1. Fetch Defined Structure first
+                $defined_floors = [];
                 $floor_order_map = [];
                 try {
                     $f_stmt = $pdo->prepare("SELECT floor_name, floor_order FROM parking_floors WHERE lot_id = ? ORDER BY floor_order ASC");
@@ -242,9 +236,24 @@ include 'includes/header.php';
                     foreach ($defined_floors as $df) {
                         $floor_order_map[$df['floor_name']] = $df['floor_order'];
                     }
-                } catch (Exception $e) { /* Ignore if table missing */ }
+                } catch (Exception $e) { /* Ignore */ }
 
-                // Sort keys (floors) based on order map
+                // 2. Group slots by floor (STRICT MODE)
+                // If structure is defined (count > 0), only show valid floors.
+                // If structure is EMPTY (count == 0), show NOTHING.
+
+                foreach ($slots as $s) {
+                    $lvl = $s['floor_level'] ?? 'Other'; 
+                    
+                    // Strict Check: Only show if floor exists in the defined structure map
+                    if (!isset($floor_order_map[$lvl])) {
+                        continue; // Hidden
+                    }
+
+                    $slots_by_floor[$lvl][] = $s;
+                }
+
+                // 3. Sort floors
                 uksort($slots_by_floor, function($a, $b) use ($floor_order_map) {
                     $oa = $floor_order_map[$a] ?? 999;
                     $ob = $floor_order_map[$b] ?? 999;

@@ -34,10 +34,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = $_POST['lot_id'];
             $stmt = $pdo->prepare("DELETE FROM parking_lots WHERE id = ?");
             if ($stmt->execute([$id])) {
-                // Slots cascade delete automatically via FK
                 header("Location: manage_lots.php?success=Lot Deleted");
                 exit;
             }
+        } elseif ($_POST['action'] === 'update_lot') {
+            $id = $_POST['lot_id'];
+            $name = trim($_POST['name']);
+            $address = trim($_POST['address']);
+            
+            $stmt = $pdo->prepare("UPDATE parking_lots SET name = ?, address = ? WHERE id = ?");
+            $stmt->execute([$name, $address, $id]);
+            header("Location: manage_lots.php?success=Lot Updated");
+            exit;
         }
     }
 }
@@ -100,9 +108,15 @@ include 'includes/header.php';
                             <td style="padding:10px;"><?php echo htmlspecialchars($lot['name']); ?></td>
                             <td style="padding:10px;"><?php echo htmlspecialchars($lot['address']); ?></td>
                             <td style="padding:10px; text-align:right;">
-                                <a href="manage_structure.php?lot_id=<?php echo $lot['id']; ?>" class="small-btn btn-secondary" style="margin-right:5px;">Design Structure</a>
-                                
+                                <a href="manage_structure.php?lot_id=<?php echo $lot['id']; ?>" class="small-btn btn-secondary" style="margin-right:5px;">Structure</a>
+                                <a href="manage_3d_design.php?lot_id=<?php echo $lot['id']; ?>" class="small-btn btn-secondary" style="margin-right:5px; background:#7209b7; color:white;">3D Design</a>
+                                 
                                 <?php if (!isset($_SESSION['admin_lot_id']) || $_SESSION['admin_lot_id'] === null): ?>
+                                    <button type="button" class="small-btn" style="margin-right:5px; background:var(--accent); color:white;" 
+                                            onclick="openEditModal(<?php echo $lot['id']; ?>, '<?php echo addslashes($lot['name']); ?>', '<?php echo addslashes($lot['address']); ?>')">
+                                        Edit
+                                    </button>
+
                                     <form method="post" onsubmit="return confirm('Delete this lot? All slots within it will be removed.');" style="display:inline;">
                                         <input type="hidden" name="action" value="delete_lot">
                                         <input type="hidden" name="lot_id" value="<?php echo $lot['id']; ?>">
@@ -123,5 +137,36 @@ include 'includes/header.php';
         </table>
     </div>
 </div>
+
+<!-- Edit Modal -->
+<div id="editModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(5px); z-index:100; align-items:center; justify-content:center;">
+    <div class="card" style="max-width:500px; width:90%; animation: floatUp 0.3s ease;">
+        <h3>Edit Lot Details</h3>
+        <form method="post">
+            <input type="hidden" name="action" value="update_lot">
+            <input type="hidden" name="lot_id" id="edit_lot_id">
+            
+            <label style="display:block; text-align:left; margin-bottom:5px;">Name</label>
+            <input class="input" name="name" id="edit_name" required>
+            
+            <label style="display:block; text-align:left; margin-bottom:5px;">Address</label>
+            <input class="input" name="address" id="edit_address" required>
+            
+            <div class="flex-between" style="margin-top:20px;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('editModal').style.display='none'" style="width:auto;">Cancel</button>
+                <button type="submit" class="btn" style="width:auto;">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(id, name, address) {
+    document.getElementById('edit_lot_id').value = id;
+    document.getElementById('edit_name').value = name;
+    document.getElementById('edit_address').value = address;
+    document.getElementById('editModal').style.display = 'flex';
+}
+</script>
 
 <?php include 'includes/footer.php'; ?>

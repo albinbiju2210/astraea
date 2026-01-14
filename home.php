@@ -66,6 +66,35 @@ $history_count = $hist_stmt->fetchColumn();
           <p>Manage your parking, check status, and book new slots.</p>
       </section>
 
+      <?php
+        // Notifications
+        $notifications = [];
+        try {
+            $notif_stmt = $pdo->prepare("SELECT * FROM notifications WHERE user_id = ? AND is_read = 0 ORDER BY created_at DESC");
+            $notif_stmt->execute([$user_id]);
+            $notifications = $notif_stmt->fetchAll();
+        } catch (PDOException $e) {
+            // Table might not exist yet, ignore
+        }
+      ?>
+
+      <?php if(count($notifications) > 0): ?>
+      <div style="margin-bottom:30px;">
+          <?php foreach($notifications as $n): ?>
+            <div style="background:rgba(220, 53, 69, 0.1); border:1px solid #dc3545; color:#dc3545; padding:15px; border-radius:12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                <span>
+                    <strong>Alert:</strong> <?php echo htmlspecialchars($n['message']); ?>
+                    <br><small><?php echo $n['created_at']; ?></small>
+                </span>
+                <form method="post" action="mark_read.php">
+                    <input type="hidden" name="notif_id" value="<?php echo $n['id']; ?>">
+                    <button style="background:transparent; border:none; color:#dc3545; cursor:pointer; font-weight:bold;">Dismiss</button>
+                </form>
+            </div>
+          <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
+
       <!-- Dashboard Grid -->
       <div class="dashboard-grid">
           

@@ -72,8 +72,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("DELETE FROM parking_floors WHERE id = ?");
             $stmt->execute([$floor_id]);
             $success = "Floor deleted.";
-        } elseif ($_POST['action'] === 'update_order') {
-            // Reorder logic could go here
+        } 
+        
+        // PRESETS
+        elseif (strpos($_POST['action'], 'add_preset_') === 0) {
+            $presets = [
+                'add_preset_mall' => [
+                    ['B2', -2], ['B1', -1], ['G', 0], ['L1', 1], ['L2', 2], ['L3', 3]
+                ],
+                'add_preset_simple' => [
+                    ['G', 0], ['L1', 1]
+                ],
+                'add_preset_basement' => [
+                    ['B3', -3], ['B2', -2], ['B1', -1]
+                ]
+            ];
+            
+            $key = $_POST['action'];
+            if (isset($presets[$key])) {
+                $stmt = $pdo->prepare("INSERT IGNORE INTO parking_floors (lot_id, floor_name, floor_order) VALUES (?, ?, ?)");
+                $added = 0;
+                foreach ($presets[$key] as $p) {
+                    $stmt->execute([$lot_id, $p[0], $p[1]]);
+                    if ($stmt->rowCount() > 0) $added++;
+                }
+                $success = "Added $added floors from preset.";
+            }
         }
     }
 }
@@ -117,6 +141,26 @@ include 'includes/header.php';
                 <!-- Add Floor Form -->
                 <div style="flex:1; min-width:300px; background:rgba(255,255,255,0.5); padding:20px; border-radius:12px;">
                     <h3>Add Floor</h3>
+                    
+                    <!-- Presets -->
+                    <div style="margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:15px;">
+                        <span style="display:block; font-size:0.8rem; color:var(--muted); margin-bottom:10px;">Quick Presets:</span>
+                        <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                            <form method="post" style="display:inline;">
+                                <input type="hidden" name="action" value="add_preset_mall">
+                                <button class="small-btn" title="Add B2, B1, G, L1, L2, L3">Standard Mall</button>
+                            </form>
+                            <form method="post" style="display:inline;">
+                                <input type="hidden" name="action" value="add_preset_simple">
+                                <button class="small-btn" title="Add G, L1">Simple (G, L1)</button>
+                            </form>
+                            <form method="post" style="display:inline;">
+                                <input type="hidden" name="action" value="add_preset_basement">
+                                <button class="small-btn" title="Add B1, B2, B3">Basements Only</button>
+                            </form>
+                        </div>
+                    </div>
+
                     <form method="post">
                         <input type="hidden" name="action" value="add_floor">
                         <label style="display:block; text-align:left; font-size:0.9rem; margin-bottom:5px;">Floor Name (e.g. L1, G)</label>

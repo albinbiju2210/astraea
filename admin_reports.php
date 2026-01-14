@@ -24,7 +24,32 @@ include 'includes/header.php';
             <a href="admin_home.php" class="small-btn">Back to Dashboard</a>
         </div>
 
-        <table style="width:100%; text-align:left; margin-top:20px; border-collapse: collapse;">
+        <?php if(isset($_GET['error'])): ?>
+            <div class="msg-error"><?php echo htmlspecialchars($_GET['error']); ?></div>
+        <?php endif; ?>
+
+        <!-- New: Monthly Analysis Report -->
+        <div style="background:var(--bg); border:1px solid var(--input-border); padding:20px; border-radius:var(--radius); margin-bottom:30px;">
+            <h3 style="margin-bottom:15px;">Monthly Analysis Report</h3>
+            <p style="color:var(--muted); margin-bottom:20px;">
+                Generate a detailed CSV analysis including occupancy rates, revenue/penalties, and user activity.
+                <br><strong>Note:</strong> Password authentication is required for data export.
+            </p>
+            
+            <form action="admin_export_report.php" method="post" style="display:grid; grid-template-columns: 1fr 1fr auto; gap:15px; align-items:end;">
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:500;">Select Month</label>
+                    <input type="month" name="report_month" class="input" style="margin:0;" required value="<?php echo date('Y-m'); ?>">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:5px; font-weight:500;">Confirm Admin Password</label>
+                    <input type="password" name="password" class="input" style="margin:0;" placeholder="Required for download" required>
+                </div>
+                <button type="submit" class="btn" style="height:52px; margin:0;">Download CSV</button>
+            </form>
+        </div>
+        
+        <h3 style="border-bottom:1px solid var(--input-border); padding-bottom:10px; margin-bottom:15px;">System Access Logs</h3>
             <thead>
                 <tr style="border-bottom:2px solid var(--input-border);">
                     <th style="padding:10px;">Time</th>

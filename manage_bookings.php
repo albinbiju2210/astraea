@@ -48,8 +48,17 @@ $sql = "
     JOIN parking_lots l ON s.lot_id = l.id
 ";
 
+// Filter params
+$conditions = [];
 if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
-    $sql .= " WHERE l.id = " . intval($_SESSION['admin_lot_id']);
+    $conditions[] = "l.id = " . intval($_SESSION['admin_lot_id']);
+}
+if (isset($_GET['filter']) && $_GET['filter'] === 'overdue') {
+    $conditions[] = "b.status = 'active' AND b.end_time < NOW()";
+}
+
+if (count($conditions) > 0) {
+    $sql .= " WHERE " . implode(' AND ', $conditions);
 }
 
 $sql .= " ORDER BY b.created_at DESC";
@@ -61,8 +70,12 @@ include 'includes/header.php';
 <div class="page-center">
     <div class="card" style="max-width:1000px">
         <div class="flex-between">
-            <h2>Manage Bookings</h2>
-            <a href="admin_home.php" class="small-btn">Back to Dashboard</a>
+            <h2>Manage Bookings <?php echo (isset($_GET['filter']) && $_GET['filter']=='overdue') ? '(Overdue Only)' : ''; ?></h2>
+            <div>
+                <a href="manage_bookings.php" class="small-btn" style="background:var(--bg); color:var(--text); border:1px solid var(--input-border); margin-right:5px;">All</a>
+                <a href="manage_bookings.php?filter=overdue" class="small-btn" style="background:#dc3545; color:white; border:none; margin-right:5px;">Overdue</a>
+                <a href="admin_home.php" class="small-btn">Dashboard</a>
+            </div>
         </div>
 
         <?php if (isset($_GET['success'])): ?>
@@ -76,6 +89,7 @@ include 'includes/header.php';
                     <th style="padding:10px;">User</th>
                     <th style="padding:10px;">Location</th>
                     <th style="padding:10px;">Time</th>
+                    <th style="padding:10px;">Penalty</th>
                     <th style="padding:10px;">Status</th>
                     <th style="padding:10px; text-align:right;">Action</th>
                 </tr>
@@ -97,8 +111,19 @@ include 'includes/header.php';
                                 <?php echo date('M d, H:i', strtotime($b['start_time'])); ?> - <br>
                                 <?php echo date('H:i', strtotime($b['end_time'])); ?>
                             </td>
+                             <td style="padding:10px; color:#dc3545; font-weight:bold;">
+                                <?php 
+                                    $penalty = isset($b['penalty']) ? $b['penalty'] : 0;
+                                    echo ($penalty > 0) ? '₹'.number_format($penalty, 2) : '-'; 
+                                ?>
+                            </td>
                             <td style="padding:10px;">
-                                <?php if($b['status']=='active'): ?>
+                                <?php 
+                                    $is_overdue = ($b['status'] == 'active' && strtotime($b['end_time']) < time());
+                                ?>
+                                <?php if($is_overdue): ?>
+                                    <span style="background:#dc3545; color:white; padding:2px 8px; border-radius:4px; font-size:0.8rem;">OVERDUE</span>
+                                <?php elseif($b['status']=='active'): ?>
                                     <span style="color:green; font-weight:bold;">Active</span>
                                 <?php elseif($b['status']=='cancelled'): ?>
                                     <span style="color:red;">Cancelled</span>

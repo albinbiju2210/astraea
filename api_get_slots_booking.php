@@ -42,9 +42,36 @@ try {
     // Grouping
     $floors = [];
     $summary = [];
+    
+    // Fetch Defined Structure
+    $defined_structure = [];
+    try {
+        $st_stmt = $pdo->prepare("SELECT floor_name FROM parking_floors WHERE lot_id = ?");
+        $st_stmt->execute([$lot_id]);
+        $defined_structure = $st_stmt->fetchAll(PDO::FETCH_COLUMN);
+    } catch(Exception $e) {}
+    
+    $has_structure = !empty($defined_structure);
+    // Convert to map for checking
+    $allowed_floors = array_fill_keys($defined_structure, true);
+
+    // STRICT MODE:
+    // If Admin wants full control: If NO structure is defined, we show NOTHING.
+    // The previous 'safety mode' (showing everything if empty) is disabled as requested.
+    if (!$has_structure) {
+        $allowed_floors = []; // Empty list = show nothing
+    }
 
     foreach ($all_slots as $s) {
         $floor = $s['floor_level'] ?? 'G';
+        
+        // Filter: Strict Check
+        // If structure is defined: Hide undefined floors.
+        // If structure is EMPTY: Hide ALL floors.
+        if (!isset($allowed_floors[$floor])) {
+            continue;
+        }
+
         if (!isset($floors[$floor])) {
             $floors[$floor] = [];
             $summary[$floor] = ['total' => 0, 'available' => 0, 'occupied' => 0];
