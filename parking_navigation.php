@@ -35,6 +35,9 @@ if (!$booking) {
 }
 
 $target_slot_id = $booking['slot_id'];
+$target_floor = $booking['floor_level']; // Fix: explicit variable
+$lot_id = $booking['lot_id']; 
+
 // 2. Fetch Defined Structure & Order
 $floor_map = []; // 'G' => 0, 'L1' => 1
 $stmt_floors = $pdo->prepare("SELECT floor_name, floor_order FROM parking_floors WHERE lot_id = ? ORDER BY floor_order ASC");
@@ -45,7 +48,7 @@ foreach ($defined_floors as $df) {
     $floor_map[$df['floor_name']] = $df['floor_order'];
 }
 
-// 3. Fetch Lot Config (Colors)
+// 3. Fetch Lot Config (Colors & Layouts)
 $stmt_lot = $pdo->prepare("SELECT config FROM parking_lots WHERE id = ?");
 $stmt_lot->execute([$lot_id]);
 $lot_data = $stmt_lot->fetch();
@@ -54,7 +57,7 @@ if ($lot_data && !empty($lot_data['config'])) {
     $lot_config = json_decode($lot_data['config'], true);
 }
 
-// 3. Fetch All Slots for this Lot to build the map
+// 4. Fetch All Slots for this Lot (to find current occupancy)
 $stmt_slots = $pdo->prepare("SELECT id, slot_number, floor_level, is_occupied FROM parking_slots WHERE lot_id = ? ORDER BY floor_level ASC, slot_number ASC");
 $stmt_slots->execute([$lot_id]);
 $all_slots = $stmt_slots->fetchAll();
@@ -204,13 +207,13 @@ $js_data = [
         neon: parseFloat(config.neon_intensity || 0.5)
     };
     
-    // Layout Config
-    const layout = {
-        entranceX: parseFloat(config.path_entrance_x || -55),
-        rampX: parseFloat(config.path_ramp_x || -45),
-        laneZ: parseFloat(config.path_lane_offset || 12.5)
-    };
+    const isMinimal = (config.theme_mode === 'minimal');
+    const layoutConfig = config.layouts || null; // NEW: Defined Layouts
 
+    // Params
+    const CELL_SIZE = 5; // Re-scale grid cells to world units
+    const FLOOR_HEIGHT = 15;
+    
     // SCENE SETUP
     const scene = new THREE.Scene();
     if (isMinimal) {
@@ -237,376 +240,272 @@ $js_data = [
     const ambientLight = new THREE.AmbientLight(0xffffff, isMinimal ? 0.8 : 0.5); 
     scene.add(ambientLight);
 
-    if (!isMinimal) {
-        // Spotlight near entrance
-        const spotLight = new THREE.SpotLight(0xff00ff, 100 * colors.neon);
-        spotLight.position.set(layout.entranceX, 60, 20); // Dynamic position
-        spotLight.angle = 0.5;
-        scene.add(spotLight);
-    }
-
     const dirLight = new THREE.DirectionalLight(0xaaccff, isMinimal ? 1 : 1.5);
-    dirLight.position.set(20, 80, -20);
+    dirLight.position.set(50, 150, 50);
     dirLight.castShadow = true;
+    dirLight.shadow.camera.left = -100;
+    dirLight.shadow.camera.right = 100;
+    dirLight.shadow.camera.top = 100;
+    dirLight.shadow.camera.bottom = -100;
     scene.add(dirLight);
-    
-    // ENVIRONMENT
-    if (!isMinimal) {
-        const gridHelper = new THREE.GridHelper(300, 60, colors.text, 0x222244);
-        gridHelper.position.y = 0.05;
-        scene.add(gridHelper);
-    }
 
-    const planeGeo = new THREE.PlaneGeometry(500, 500);
-    const planeMat = new THREE.MeshStandardMaterial({ 
-        color: isMinimal ? 0xffffff : 0x0a0a12, 
-        roughness: 0.2, 
-        metalness: isMinimal ? 0.1 : 0.8,
-        transparent: true,
-        opacity: 0.4
-    });
-    const plane = new THREE.Mesh(planeGeo, planeMat);
-    plane.rotation.x = -Math.PI / 2;
-    plane.receiveShadow = true;
-    scene.add(plane);
-    
-    // MULTI-FLOOR PARKING LOT
-    const slotWidth = 4;
-    const slotDepth = 6;
-    const roadWidth = Math.abs(layout.laneZ * 2) - slotDepth; // Approx geometry
-    const floorHeight = 15;
-    const slots = parkingData.slots;
-    const targetId = parkingData.target_slot_id;
-    const targetFloorLevel = parkingData.target_floor;
-    let targetPosition = new THREE.Vector3();
-
+    // Floor Map
     const floorMap = Object.keys(parkingData.floor_structure).length > 0 
         ? parkingData.floor_structure 
         : { 'B1': -1, 'G': 0, 'L1': 1, 'L2': 2, 'L3': 3 };
 
-    const slotsByFloor = {};
-    const hasStructure = Object.keys(parkingData.floor_structure).length > 0;
+    // Group Slots by ID for easy lookup
+    const slotStatusMap = {};
+    parkingData.slots.forEach(s => slotStatusMap[s.id] = s);
 
-    slots.forEach(slot => {
-        const floor = slot.floor_level || 'G';
-        if (hasStructure && floorMap[floor] === undefined) return;
-        if (!slotsByFloor[floor]) slotsByFloor[floor] = [];
-        slotsByFloor[floor].push(slot);
-    });
+    const targetId = parkingData.target_slot_id;
+    const targetFloor = parkingData.target_floor;
+    let targetPosition = new THREE.Vector3();
+    let entrancePosition = new THREE.Vector3(-55, 0, 0); // Default
+    let rampPositionX = -45; // Default
 
+    // LOAD FONTS & BUILD
     const loader = new FontLoader();
     loader.load('https://unpkg.com/three@0.160.0/examples/fonts/helvetiker_bold.typeface.json', function (font) {
         
-        Object.keys(slotsByFloor).forEach(floorLevel => {
-            const floorSlots = slotsByFloor[floorLevel];
-            const yOffset = (floorMap[floorLevel] || 0) * floorHeight;
-
-            // Floor platform
-            const floorPlatformGeo = new THREE.BoxGeometry(100, 0.5, 60);
-            const floorPlatformMat = new THREE.MeshStandardMaterial({ 
-                color: new THREE.Color(colors.floor), 
-                roughness: 0.3,
-                metalness: 0.7
-            });
-            const floorPlatform = new THREE.Mesh(floorPlatformGeo, floorPlatformMat);
-            floorPlatform.position.set(0, yOffset - 0.25, 0);
-            floorPlatform.receiveShadow = true;
-            scene.add(floorPlatform);
-
-            // Floor label
-            const textGeo = new TextGeometry(floorLevel, {
-                font: font,
-                size: 3,
-                height: 0.5
-            });
-            const textMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(colors.text) });
-            const textMesh = new THREE.Mesh(textGeo, textMat);
-            textMesh.position.set(layout.entranceX, yOffset + 8, -25);
-            textMesh.rotation.y = Math.PI / 4;
-            scene.add(textMesh);
-
-            floorSlots.forEach((slot, index) => {
-                const isTopRow = index % 2 === 0;
-                const pairIndex = Math.floor(index / 2);
-                const xPos = (pairIndex * (slotWidth + 1)) - (floorSlots.length * (slotWidth+1) / 4);
-                const zPos = isTopRow ? -(layout.laneZ + slotDepth/2) : (layout.laneZ + slotDepth/2);
-
-                const isTarget = (slot.id == targetId);
-                const markerColor = isTarget ? 0x00ff00 : (slot.is_occupied ? new THREE.Color(colors.occupied) : new THREE.Color(colors.open));
-                
-                const boxGeo = new THREE.BoxGeometry(slotWidth, 0.1, slotDepth);
-                const edges = new THREE.EdgesGeometry(boxGeo);
-                const lineMat = new THREE.LineBasicMaterial({ color: markerColor });
-                const boxLines = new THREE.LineSegments(edges, lineMat);
-                boxLines.position.set(xPos, yOffset + 0.15, zPos);
-                scene.add(boxLines);
-
-                if (isTarget) {
-                    targetPosition.set(xPos, yOffset, zPos);
-                    const pillarGeo = new THREE.CylinderGeometry(0.1, 0.1, 10, 8);
-                    const pillarMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.3 });
-                    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-                    pillar.position.set(xPos, yOffset + 5, zPos);
-                    scene.add(pillar);
-                }
-
-                if (slot.is_occupied && !isTarget) {
-                    const carGroup = new THREE.Group();
-                    const chassisGeo = new THREE.BoxGeometry(slotWidth * 0.8, 1, slotDepth * 0.8);
-                    const chassisMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.3 });
-                    const chassis = new THREE.Mesh(chassisGeo, chassisMat);
-                    chassis.position.y = 0.5;
-                    chassis.castShadow = true;
-                    carGroup.add(chassis);
-
-                    const cockpitGeo = new THREE.BoxGeometry(slotWidth * 0.6, 0.6, slotDepth * 0.4);
-                    const cockpitMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.1, metalness: 0.9 });
-                    const cockpit = new THREE.Mesh(cockpitGeo, cockpitMat);
-                    cockpit.position.y = 1.3;
-                    carGroup.add(cockpit);
-
-                    carGroup.position.set(xPos, yOffset, zPos);
-                    scene.add(carGroup);
-                }
-            });
-
-            // Ramp indicator
-            if (floorLevel !== 'G') {
-                const rampGeo = new THREE.BoxGeometry(8, 0.5, 4);
-                const rampMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xffaa00, emissiveIntensity: 0.3 });
-                const ramp = new THREE.Mesh(rampGeo, rampMat);
-                ramp.position.set(layout.rampX, yOffset, 0);
-                scene.add(ramp);
-
-                const rampTextGeo = new TextGeometry('RAMP', {
-                    font: font,
-                    size: 1,
-                    height: 0.2
-                });
-                const rampTextMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(colors.text) });
-                const rampTextMesh = new THREE.Mesh(rampTextGeo, rampTextMat);
-                rampTextMesh.position.set(layout.rampX - 3, yOffset + 1, -1);
-                scene.add(rampTextMesh);
+        // Build Floors
+        Object.keys(floorMap).forEach(floorName => {
+            const floorIndex = floorMap[floorName];
+            const yOffset = floorIndex * FLOOR_HEIGHT;
+            
+            // Check if we have a Custom Layout for this floor
+            if (layoutConfig && layoutConfig[floorName]) {
+                buildFloorFromGrid(floorName, yOffset, layoutConfig[floorName], font);
+            } else {
+                // FALLBACK: Auto-generated
+                buildFloorValuesFallback(floorName, yOffset, font);
             }
         });
 
-        // Create realistic ramps between floors
-        const rampWidth = 8;
-        const rampLength = 25;
-        Object.keys(floorMap).forEach(floorLevel => {
-            if (floorLevel === 'G') return; // Ground floor doesn't need a ramp from below
-            
-            const currentFloorY = floorMap[floorLevel] * floorHeight;
-            const previousFloorY = (floorMap[floorLevel] - 1) * floorHeight;
-            const heightDiff = currentFloorY - previousFloorY;
-            
-            // Create sloped ramp geometry
-            const rampGeo = new THREE.BoxGeometry(rampWidth, 0.5, rampLength);
-            const rampMat = new THREE.MeshStandardMaterial({ 
-                color: new THREE.Color(colors.road), 
-                roughness: 0.7,
-                metalness: 0.3
-            });
-            const ramp = new THREE.Mesh(rampGeo, rampMat);
-            
-            // Position and rotate to create slope
-            const midY = (previousFloorY + currentFloorY) / 2;
-            ramp.position.set(layout.rampX, midY, 0);
-            ramp.rotation.x = Math.atan(heightDiff / rampLength);
-            ramp.receiveShadow = true;
-            ramp.castShadow = true;
-            scene.add(ramp);
-            
-            // Add road markings on ramp
-            const stripeGeo = new THREE.PlaneGeometry(0.3, rampLength);
-            const stripeMat = new THREE.MeshBasicMaterial({ 
-                color: 0xffff00,
-                side: THREE.DoubleSide
-            });
-            
-            // Center stripe
-            const centerStripe = new THREE.Mesh(stripeGeo, stripeMat);
-            centerStripe.position.set(layout.rampX, midY + 0.3, 0);
-            centerStripe.rotation.x = Math.atan(heightDiff / rampLength) - Math.PI / 2;
-            scene.add(centerStripe);
-            
-            // Side rails
-            const railGeo = new THREE.BoxGeometry(0.3, 1.5, rampLength);
-            const railMat = new THREE.MeshStandardMaterial({ color: 0xff6600 });
-            
-            const leftRail = new THREE.Mesh(railGeo, railMat);
-            leftRail.position.set(layout.rampX - rampWidth/2, midY + 0.75, 0);
-            leftRail.rotation.x = Math.atan(heightDiff / rampLength);
-            scene.add(leftRail);
-            
-            const rightRail = new THREE.Mesh(railGeo, railMat);
-            rightRail.position.set(layout.rampX + rampWidth/2, midY + 0.75, 0);
-            rightRail.rotation.x = Math.atan(heightDiff / rampLength);
-            scene.add(rightRail);
-            
-            // Support pillars under ramp
-            const pillarGeo = new THREE.CylinderGeometry(0.5, 0.5, heightDiff, 8);
-            const pillarMat = new THREE.MeshStandardMaterial({ 
-                color: 0x333344,
-                roughness: 0.8
-            });
-            
-            for (let i = 0; i < 3; i++) {
-                const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-                const zPos = (i - 1) * 8;
-                pillar.position.set(-45, previousFloorY + heightDiff/2, zPos);
-                pillar.castShadow = true;
-                scene.add(pillar);
-            }
-        });
+        // Ramps connecting floors
+        buildRamps();
 
-        if (targetPosition.x !== 0 || targetPosition.z !== 0) {
-            createNeonPath(targetPosition, targetFloorLevel);
-        }
+        // Path
+        createNeonPath(targetPosition, targetFloor);
     });
 
-    function createNeonPath(targetPos, targetFloor) {
-        const entrance = new THREE.Vector3(layout.entranceX, 0.5, 0);
-        const points = [entrance];
+    function buildFloorFromGrid(floorName, yOffset, data, font) {
+        const rows = data.rows;
+        const cols = data.cols;
+        const grid = data.grid;
         
-        const targetFloorIndex = floorMap[targetFloor] || 0;
+        const width = cols * CELL_SIZE;
+        const depth = rows * CELL_SIZE;
+        const centerX = width / 2;
+        const centerY = depth / 2;
+
+        // Platform
+        const platformGeo = new THREE.BoxGeometry(width + 4, 0.5, depth + 4);
+        const platformMat = new THREE.MeshStandardMaterial({ 
+            color: new THREE.Color(colors.floor), roughness: 0.3 
+        });
+        const platform = new THREE.Mesh(platformGeo, platformMat);
+        platform.position.set(0, yOffset - 0.25, 0);
+        platform.receiveShadow = true;
+        scene.add(platform);
         
-        // Navigation Logic:
-        // 1. If target is below ground (B1), go down the B1 ramp.
-        // 2. If target is above ground (L1+), climb sequentially floor by floor.
-        
-        if (targetFloorIndex > 0) {
-            // Sequential climb for upper floors
-            for (let i = 1; i <= targetFloorIndex; i++) {
-                const prevY = (i - 1) * floorHeight;
-                const currY = i * floorHeight;
+        // Label
+        addText(floorName, -centerX - 10, yOffset + 5, 0, font);
+
+        for(let r=0; r<rows; r++) {
+            for(let c=0; c<cols; c++) {
+                const cell = grid[r][c];
+                // World Coords
+                const x = (c * CELL_SIZE) - centerX + (CELL_SIZE/2);
+                const z = (r * CELL_SIZE) - centerY + (CELL_SIZE/2);
                 
-                // Entry to ramp on floor below
-                points.push(new THREE.Vector3(layout.rampX, prevY + 0.5, -layout.laneZ));
-                // Exit from ramp on current floor
-                points.push(new THREE.Vector3(layout.rampX, currY + 0.5, layout.laneZ));
-                
-                // If this is the destination floor, move toward the lane
-                if (i === targetFloorIndex) {
-                    points.push(new THREE.Vector3(targetPos.x, currY + 0.5, layout.laneZ));
+                if (cell.type === 'wall') {
+                    const wallGeo = new THREE.BoxGeometry(CELL_SIZE, 3, CELL_SIZE);
+                    const wallMat = new THREE.MeshStandardMaterial({ color: colors.wall }); // darker than floor
+                    const wall = new THREE.Mesh(wallGeo, wallMat);
+                    wall.position.set(x, yOffset + 1.5, z);
+                    wall.castShadow = true;
+                    scene.add(wall);
+                }
+                else if (cell.type === 'road' || cell.type === 'entrance' || cell.type === 'exit') {
+                    // Markings?
+                    if (cell.type === 'entrance') entrancePosition.set(x, yOffset, z);
+                }
+                else if (cell.type === 'slot') {
+                    // It's a slot
+                    const isTarget = (cell.slot_id == targetId);
+                    
+                    // Check occupancy from DB status map
+                    let isOccupied = false;
+                    if (cell.slot_id && slotStatusMap[cell.slot_id]) {
+                        isOccupied = slotStatusMap[cell.slot_id].is_occupied;
+                    }
+
+                    // Render Slot
+                    const boxGeo = new THREE.BoxGeometry(CELL_SIZE - 0.5, 0.1, CELL_SIZE - 0.5);
+                    const boxMat = new THREE.MeshBasicMaterial({ 
+                        color: isTarget ? 0x00ff00 : (isOccupied ? colors.occupied : colors.open),
+                        wireframe: true
+                    });
+                    const slotMesh = new THREE.Mesh(boxGeo, boxMat);
+                    slotMesh.position.set(x, yOffset + 0.1, z);
+                    scene.add(slotMesh);
+
+                    // Add Label
+                    // skipping text for every slot (perf), maybe just target?
+                    
+                    if (isTarget) {
+                        targetPosition.set(x, yOffset, z);
+                        // Add Beacon
+                        const beaconGeo = new THREE.CylinderGeometry(0.2, 0.2, 5, 8);
+                        const beaconMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                        const beacon = new THREE.Mesh(beaconGeo, beaconMat);
+                        beacon.position.set(x, yOffset + 2.5, z);
+                        scene.add(beacon);
+                    }
+                    else if (isOccupied) {
+                         // Car
+                        const car = createCar(colors.occupied); // generic color
+                        car.position.set(x, yOffset + 0.5, z);
+                        scene.add(car);
+                    }
                 }
             }
-        } else if (targetFloorIndex < 0) {
-            // Basement logic (B1)
-            const b1Y = -1 * floorHeight;
-            // Entrance to basement ramp (starts on G)
-            points.push(new THREE.Vector3(layout.rampX, 0.5, layout.laneZ));
-            // Exit from basement ramp (ends on B1)
-            points.push(new THREE.Vector3(layout.rampX, b1Y + 0.5, -layout.laneZ));
-            
-            points.push(new THREE.Vector3(targetPos.x, b1Y + 0.5, -layout.laneZ));
-        } else {
-            // Ground floor (G)
-            points.push(new THREE.Vector3(layout.rampX, 0.5, 0)); // Go near ramp first?
-        }
-
-        // Final leg to the target slot
-        const targetY = targetFloorIndex * floorHeight;
-        // If not G, we are already at laneZ. If G, we are at 0.
-        // But targetPos.z is the slot center.
-        
-        // Logic fix: Ensure we drive along the lane (layout.laneZ) before turning.
-        // Simplification: Always drive to targetPos.x along the laneZ axis of that floor.
-        // For G, lane is 0? 
-        // No, G layout handles laneZ too.
-        
-        // Correct path: Just connect from last point to X-aligned point.
-        points.push(new THREE.Vector3(targetPos.x, targetY + 0.5, (targetFloorIndex!==0 ? (targetFloorIndex>0?layout.laneZ:-layout.laneZ) : 0) )); 
-
-        points.push(new THREE.Vector3(targetPos.x, targetY + 0.5, targetPos.z)); // Turn into slot
-
-        const curve = new THREE.CatmullRomCurve3(points);
-        
-        const tubeGeo = new THREE.TubeGeometry(curve, 128, 0.4, 8, false);
-        const tubeMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); 
-        const tube = new THREE.Mesh(tubeGeo, tubeMat);
-        scene.add(tube);
-        
-        // Glow, Arrow ...
-        const glowGeo = new THREE.TubeGeometry(curve, 64, 0.8, 8, false);
-        const glowMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.2 });
-        const glowPoints = new THREE.Mesh(glowGeo, glowMat);
-        scene.add(glowPoints);
-
-        const arrowGeo = new THREE.ConeGeometry(1.5, 3, 4); 
-        const arrowMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
-        const arrow = new THREE.Mesh(arrowGeo, arrowMat);
-        arrow.position.copy(targetPos);
-        arrow.position.y = targetY + 5;
-        arrow.rotation.x = Math.PI;
-        scene.add(arrow);
-        window.arrowMesh = arrow;
-
-        const container = document.getElementById('steps-container');
-        if(container) {
-            container.innerHTML = '';
-            const steps = [
-                "Enter via Main Gate."
-            ];
-            
-            if (targetFloor !== 'G') {
-                steps.push(`Take the RAMP to Floor ${targetFloor}.`);
-            }
-            
-            steps.push(`Drive ${Math.round(Math.abs(targetPos.x - layout.entranceX))}m along the neon line.`);
-
-            steps.push(`Turn ${targetPos.z > 0 ? 'Right' : 'Left'} into your bay.`);
-            steps.push("Park at the Green Hologram.");
-            
-            steps.forEach((text, i) => {
-                const div = document.createElement('div');
-                div.className = 'step';
-                div.innerHTML = `<div class="step-num">${i+1}</div><div class="step-text">${text}</div>`;
-                container.appendChild(div);
-            });
         }
     }
 
-    const clock = new THREE.Clock();
-    
-    function animate() {
-        requestAnimationFrame(animate);
-        const time = clock.getElapsedTime();
-        controls.update();
+    function buildFloorValuesFallback(floorName, yOffset, font) {
+        // Fallback Logic (Legacy) if no Layout Design
+        // Just create a simple slab
+        const platform = new THREE.Mesh(
+            new THREE.BoxGeometry(100, 0.5, 60),
+            new THREE.MeshStandardMaterial({ color: colors.floor })
+        );
+        platform.position.set(0, yOffset - 0.25, 0);
+        scene.add(platform);
+        addText(floorName + " (No Design)", -50, yOffset + 5, 0, font);
+        
+        // We can't render specific slots accurately without the grid, 
+        // but let's try to infer if target is here
+        if (floorName === targetFloor) {
+            targetPosition.set(0, yOffset, 0); // Default center
+        }
+    }
 
-        if (window.arrowMesh) {
-            window.arrowMesh.position.y = (floorMap[targetFloorLevel] || 0) * floorHeight + 5 + Math.sin(time * 3) * 1;
-            window.arrowMesh.rotation.y += 0.02; 
+    function buildRamps() {
+        // Simple Vertical connections for now, relying on rampX from config
+        // or just defaulting to left/right side
+        const rampX = parseFloat(config.path_ramp_x || -45);
+        
+        Object.keys(floorMap).forEach(floorName => {
+            if (floorName === 'G') return;
+            const floorIdx = floorMap[floorName];
+            const prevFloorIdx = floorIdx - 1; // Simplistic assumption of sequential order
+            
+            // Find y's
+            const y1 = floorIdx * FLOOR_HEIGHT;
+            const y2 = (floorIdx - 1) * FLOOR_HEIGHT;
+            const midY = (y1 + y2) / 2;
+            const height = y1 - y2;
+
+            // Ramp Mesh
+            const geo = new THREE.BoxGeometry(6, 0.5, 20); // Width 6, Length 20
+            const mat = new THREE.MeshStandardMaterial({ color: colors.road });
+            const ramp = new THREE.Mesh(geo, mat);
+            ramp.position.set(rampX, midY, 0);
+            
+            // Calc angle
+            const angle = Math.atan(height / 20);
+            ramp.rotation.x = angle; // or z depending on orientation
+            scene.add(ramp);
+        });
+    }
+
+    function createCar(color) {
+        const group = new THREE.Group();
+        const chassis = new THREE.Mesh(
+            new THREE.BoxGeometry(3.5, 1, 4.5),
+            new THREE.MeshStandardMaterial({ color: 0x333333 })
+        );
+        const top = new THREE.Mesh(
+            new THREE.BoxGeometry(2.5, 0.8, 2.5),
+            new THREE.MeshStandardMaterial({ color: 0x111111 })
+        );
+        top.position.y = 0.9;
+        group.add(chassis);
+        group.add(top);
+        return group;
+    }
+
+    function addText(str, x, y, z, font) {
+        const geo = new TextGeometry(str, { font: font, size: 4, height: 0.5 });
+        const mat = new THREE.MeshBasicMaterial({ color: colors.text });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(x, y, z);
+        mesh.rotation.y = Math.PI/2;
+        scene.add(mesh);
+    }
+
+    function createNeonPath(targetPos, targetFloor) {
+        // A simple curved path from Entrance -> Ramp Stack -> Target
+        // 1. Entrance (G)
+        // 2. Ramp Stack X (rampX)
+        // 3. Target
+        
+        const rampX = parseFloat(config.path_ramp_x || -45);
+        const points = [];
+
+        // Start at Entrance
+        // If we have a defined entrance position from grid, use it, else default
+        // Usually Entrance is on G
+        const startY = (floorMap['G'] || 0) * FLOOR_HEIGHT; 
+        points.push(new THREE.Vector3(entrancePosition.x, startY + 2, entrancePosition.z));
+        
+        // Move to Ramp Column
+        points.push(new THREE.Vector3(rampX, startY + 2, 0));
+
+        // Move Vertically to Target Floor
+        const targetY = targetPos.y;
+        if (targetY !== startY) {
+            // Spiral up/down? Just straight line for now
+            points.push(new THREE.Vector3(rampX, targetY + 2, 0));
         }
 
+        // Move to Target
+        points.push(new THREE.Vector3(targetPos.x, targetY + 2, targetPos.z));
+
+        const curve = new THREE.CatmullRomCurve3(points);
+        const tub = new THREE.TubeGeometry(curve, 64, 0.5, 8, false);
+        const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const mesh = new THREE.Mesh(tub, mat);
+        scene.add(mesh);
+
+        // Arrow at target
+        const arrow = new THREE.Mesh(
+            new THREE.ConeGeometry(2, 4, 16),
+            new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+        );
+        arrow.position.set(targetPos.x, targetPos.y + 6, targetPos.z);
+        arrow.rotation.x = Math.PI;
+        scene.add(arrow);
+        window.arrow = arrow;
+    }
+
+    // Animation Loop
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        if (window.arrow) {
+            window.arrow.rotation.y += 0.05;
+            window.arrow.position.y += Math.sin(Date.now() * 0.005) * 0.05;
+        }
         renderer.render(scene, camera);
     }
     animate();
 
-    // INTRO ANIMATION & CAMERA FOCUS
-    const targetY = (floorMap[targetFloorLevel] || 0) * floorHeight;
-    const startPos = new THREE.Vector3(0, 150, 150);
-    const endPos = new THREE.Vector3(-80, targetY + 25, 30); // Focus on target floor
-    
-    camera.position.copy(startPos);
-    controls.target.set(targetPosition.x, targetY, targetPosition.z);
-    
-    let alpha = 0;
-    function introParams() {
-        if (alpha < 1) {
-            alpha += 0.015;
-            camera.position.lerpVectors(startPos, endPos, alpha);
-            controls.update();
-            requestAnimationFrame(introParams);
-        }
-    }
-    introParams();
-
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+    // Intro config
+    camera.position.set(100, 100, 100);
+    controls.target.copy(targetPosition);
 
 </script>
 </body>

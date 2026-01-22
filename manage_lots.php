@@ -109,6 +109,7 @@ include 'includes/header.php';
                             <td style="padding:10px;"><?php echo htmlspecialchars($lot['address']); ?></td>
                             <td style="padding:10px; text-align:right;">
                                 <a href="manage_structure.php?lot_id=<?php echo $lot['id']; ?>" class="small-btn btn-secondary" style="margin-right:5px;">Structure</a>
+                                <a href="manage_lot_layout.php?lot_id=<?php echo $lot['id']; ?>" class="small-btn btn-secondary" style="margin-right:5px; background:#10b981; color:white;">Layout Map</a>
                                 <a href="manage_3d_design.php?lot_id=<?php echo $lot['id']; ?>" class="small-btn btn-secondary" style="margin-right:5px; background:#7209b7; color:white;">3D Design</a>
                                  
                                 <?php if (!isset($_SESSION['admin_lot_id']) || $_SESSION['admin_lot_id'] === null): ?>
