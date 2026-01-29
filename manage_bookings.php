@@ -89,6 +89,7 @@ include 'includes/header.php';
                     <th style="padding:10px;">User</th>
                     <th style="padding:10px;">Location</th>
                     <th style="padding:10px;">Time</th>
+                    <th style="padding:10px;">Actual (In/Out)</th>
                     <th style="padding:10px;">Penalty</th>
                     <th style="padding:10px;">Status</th>
                     <th style="padding:10px; text-align:right;">Action</th>
@@ -110,6 +111,17 @@ include 'includes/header.php';
                             <td style="padding:10px;">
                                 <?php echo date('M d, H:i', strtotime($b['start_time'])); ?> - <br>
                                 <?php echo date('H:i', strtotime($b['end_time'])); ?>
+                            </td>
+                            <td style="padding:10px;">
+                                <?php if($b['entry_time']): ?>
+                                    <span style="color:green;">In: <?php echo date('H:i', strtotime($b['entry_time'])); ?></span><br>
+                                <?php else: ?>
+                                    <span style="color:#ccc;">-</span><br>
+                                <?php endif; ?>
+                                
+                                <?php if($b['exit_time']): ?>
+                                    <span style="color:blue;">Out: <?php echo date('H:i', strtotime($b['exit_time'])); ?></span>
+                                <?php endif; ?>
                             </td>
                              <td style="padding:10px; color:#dc3545; font-weight:bold;">
                                 <?php 

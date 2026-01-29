@@ -26,16 +26,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($booking) {
             $slot_id = $booking['slot_id'];
             
-            // 1. Mark booking as completed
-            $update = $pdo->prepare("UPDATE bookings SET status = 'completed', end_time = NOW() WHERE id = ?");
-            $update->execute([$booking_id]);
-
-            // 2. Free up the slot
-            $free = $pdo->prepare("UPDATE parking_slots SET is_occupied = 0 WHERE id = ?");
-            $free->execute([$slot_id]);
-
-            header("Location: my_bookings.php?msg=Slot vacated successfully");
-            exit;
+            // CHECK: Has the user entered?
+            // If they entered (entry_time SET), we generate an EXIT CODE.
+            // If they never entered (entry_time NULL), we just CANCEL/COMPLETE.
+            
+            $check_entry = $pdo->prepare("SELECT entry_time FROM bookings WHERE id = ?");
+            $check_entry->execute([$booking_id]);
+            $entry_time = $check_entry->fetchColumn();
+            
+            if ($entry_time) {
+                // User is INSIDE. Generate Exit Pass.
+                $new_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
+                
+                $update = $pdo->prepare("UPDATE bookings SET access_code = ? WHERE id = ?");
+                $update->execute([$new_code, $booking_id]);
+                
+                header("Location: my_bookings.php?msg=Exit Pass Generated. Scan at Gate to Leave.");
+                exit;
+            } else {
+                // User NOT inside. Cancel/Free slot.
+                $update = $pdo->prepare("UPDATE bookings SET status = 'completed', end_time = NOW() WHERE id = ?");
+                $update->execute([$booking_id]);
+    
+                $free = $pdo->prepare("UPDATE parking_slots SET is_occupied = 0 WHERE id = ?");
+                $free->execute([$slot_id]);
+    
+                header("Location: my_bookings.php?msg=Slot vacated successfully");
+                exit;
+            }
         }
     }
 }
@@ -76,6 +94,9 @@ include 'includes/header.php';
 
         <?php if (isset($_GET['new_booking'])): ?>
             <div class="msg-success">Booking confirmed! Navigate to your slot below.</div>
+        <?php endif; ?>
+        <?php if (isset($_GET['msg'])): ?>
+            <div class="msg-success"><?php echo htmlspecialchars($_GET['msg']); ?></div>
         <?php endif; ?>
 
         <!-- Queue Status -->
@@ -127,10 +148,10 @@ include 'includes/header.php';
                              </div>
                              <?php if($b['status']=='active'): ?>
                                 <div style="display:flex; gap:10px;">
-                                    <form method="post" onsubmit="return confirm('Are you sure you want to vacate this slot? This will end your booking.');">
+                                    <form method="post" onsubmit="return confirm('Ready to leave? This will generate your exit code.');">
                                         <input type="hidden" name="action" value="vacate">
                                         <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
-                                        <button class="small-btn" style="background:#dc3545; color:white; border:none; cursor:pointer;">Vacate</button>
+                                        <button class="small-btn" style="background:#dc3545; color:white; border:none; cursor:pointer;">Vacate & Exit</button>
                                     </form>
                                     <a href="parking_navigation.php?booking_id=<?php echo $b['id']; ?>" class="small-btn" style="background:#007bff; color:white; border:none; display:inline-block;">3D Navigation</a>
                                 </div>
@@ -144,9 +165,16 @@ include 'includes/header.php';
                                 <?php $code = $b['access_code'] ?? 'PENDING'; ?>
                                 <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=<?php echo $code; ?>" alt="QR" style="border-radius:4px;">
                                 <div>
-                                    <div style="font-size:0.75rem; color:#666; text-transform:uppercase; letter-spacing:1px;">Validation Code</div>
-                                    <div style="font-size:1.5rem; font-weight:800; letter-spacing:2px; font-family:monospace;"><?php echo $code; ?></div>
-                                    <div style="font-size:0.7rem; color:var(--primary);">Scan QR or Enter this code at Gate</div>
+                                    <!-- Dynamic Label Based on State -->
+                                    <?php if(isset($b['entry_time']) && !empty($b['entry_time'])): ?>
+                                        <div style="font-size:0.75rem; color:#dc3545; text-transform:uppercase; letter-spacing:1px; font-weight:bold;">EXIT PASS</div>
+                                        <div style="font-size:1.5rem; font-weight:800; letter-spacing:2px; font-family:monospace;"><?php echo $code; ?></div>
+                                        <div style="font-size:0.7rem; color:#dc3545;">Scan this at Exit Gate</div>
+                                    <?php else: ?>
+                                        <div style="font-size:0.75rem; color:#666; text-transform:uppercase; letter-spacing:1px;">Validation Code</div>
+                                        <div style="font-size:1.5rem; font-weight:800; letter-spacing:2px; font-family:monospace;"><?php echo $code; ?></div>
+                                        <div style="font-size:0.7rem; color:var(--primary);">Scan QR at Entry Gate</div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         <?php endif; ?>
