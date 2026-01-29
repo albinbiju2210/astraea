@@ -66,8 +66,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             // Create Booking
             $pdo->beginTransaction();
             try {
-                $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, start_time, end_time, status) VALUES (?, ?, ?, ?, 'active')");
-                $stmt->execute([$user_id, $slot_id, $s_time, $e_time]);
+                // Generate unique access code
+                $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
+                
+                $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, start_time, end_time, status, access_code) VALUES (?, ?, ?, ?, 'active', ?)");
+                $stmt->execute([$user_id, $slot_id, $s_time, $e_time, $access_code]);
                 
                 // Update real-time status ONLY if the booking starts NOW (or very close)
                 // For simplicity, we can set is_occupied if start_time is within 15 mins.

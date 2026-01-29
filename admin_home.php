@@ -28,7 +28,12 @@ try {
     if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
         $lotId = $_SESSION['admin_lot_id'];
         $stats['lots']  = 1; // You manage 1 lot
-        $stats['slots'] = $pdo->prepare("SELECT COUNT(*) FROM parking_slots WHERE lot_id = ?");
+        $stats['slots'] = $pdo->prepare("
+            SELECT COUNT(s.id) 
+            FROM parking_slots s 
+            INNER JOIN parking_floors f ON s.lot_id = f.lot_id AND s.floor_level = f.floor_name
+            WHERE s.lot_id = ?
+        ");
         $stats['slots']->execute([$lotId]);
         $stats['slots'] = $stats['slots']->fetchColumn();
         
@@ -51,7 +56,13 @@ try {
     } else {
         // Super Admin
         $stats['lots']  = $pdo->query("SELECT COUNT(*) FROM parking_lots")->fetchColumn();
-        $stats['slots'] = $pdo->query("SELECT COUNT(*) FROM parking_slots")->fetchColumn();
+        // Count only slots on valid floors across all lots
+        $stats['slots'] = $pdo->query("
+            SELECT COUNT(s.id) 
+            FROM parking_slots s 
+            INNER JOIN parking_floors f ON s.lot_id = f.lot_id AND s.floor_level = f.floor_name
+        ")->fetchColumn();
+        
         $stats['active_bookings'] = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'active'")->fetchColumn();
         $stats['overdue_bookings'] = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'active' AND end_time < NOW()")->fetchColumn();
     }
@@ -129,20 +140,29 @@ try {
           <div class="stat-card">
               <div>
                   <h3>Parking Lots</h3>
-                  <div class="stat-value"><?php echo $stats['lots']; ?> / <?php echo $stats['slots']; ?></div>
-                  <p>Lots / Total Slots configured.</p>
+                  <div class="stat-value" style="font-size: 2rem;">
+                      <?php echo $stats['lots']; ?> 
+                      <span style="font-size:1rem; color:var(--muted); font-weight:400;"><?php echo $stats['lots'] == 1 ? 'Lot' : 'Lots'; ?></span> 
+                      • 
+                      <?php echo $stats['slots']; ?> 
+                      <span style="font-size:1rem; color:var(--muted); font-weight:400;"><?php echo $stats['slots'] == 1 ? 'Slot' : 'Slots'; ?></span>
+                  </div>
+                  <p>Total capacity across all lots.</p>
               </div>
               <a href="manage_lots.php" class="link" style="margin-top:10px; display:inline-block;">Manage Structure &rarr;</a>
           </div>
 
-              <div style="flex:1; min-width:200px;">
-                  <h3>System Actions</h3>
-                  <p>Quick links to administrative tools.</p>
+          <!-- System Actions Row -->
+          <div style="grid-column: 1 / -1; display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding:0 10px; flex-wrap:wrap; gap:20px;">
+              <div>
+                  <h3 style="margin:0 0 5px 0;">System Actions</h3>
+                  <p style="margin:0; color:var(--muted);">Quick links to administrative tools.</p>
               </div>
-              <div style="flex:2; display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
-                  <a href="manage_slots.php" class="btn btn-secondary" style="width:auto; margin:0;">Manage Slots</a>
-                  <a href="manage_bookings.php" class="btn btn-secondary" style="width:auto; margin:0;">All Bookings</a>
-                  <a href="admin_reports.php" class="btn" style="width:auto; margin:0;">Reports & Logs</a>
+              <div style="display:flex; gap:15px; flex-wrap:wrap;">
+                  <a href="admin_entry_exit.php" class="btn" style="width:auto; padding:12px 24px; background:var(--primary); box-shadow:0 4px 10px rgba(0,0,0,0.2);">📷 Gate Scanner</a>
+                  <a href="manage_slots.php" class="btn btn-secondary" style="width:auto; padding:12px 24px;">Slot Register</a>
+                  <a href="manage_bookings.php" class="btn btn-secondary" style="width:auto; padding:12px 24px;">All Bookings</a>
+                  <a href="admin_reports.php" class="btn" style="width:auto; padding:12px 24px;">Reports & Logs</a>
               </div>
           </div>
 

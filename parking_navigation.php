@@ -446,37 +446,202 @@ $js_data = [
         scene.add(mesh);
     }
 
-    function createNeonPath(targetPos, targetFloor) {
-        // A simple curved path from Entrance -> Ramp Stack -> Target
-        // 1. Entrance (G)
-        // 2. Ramp Stack X (rampX)
-        // 3. Target
-        
-        const rampX = parseFloat(config.path_ramp_x || -45);
-        const points = [];
+    // --- PATHFINDING & A* ---
 
-        // Start at Entrance
-        // If we have a defined entrance position from grid, use it, else default
-        // Usually Entrance is on G
-        const startY = (floorMap['G'] || 0) * FLOOR_HEIGHT; 
-        points.push(new THREE.Vector3(entrancePosition.x, startY + 2, entrancePosition.z));
-        
-        // Move to Ramp Column
-        points.push(new THREE.Vector3(rampX, startY + 2, 0));
+    class PriorityQueue {
+        constructor() { this.values = []; }
+        enqueue(val, priority) {
+            this.values.push({val, priority});
+            this.sort();
+        }
+        dequeue() { return this.values.shift(); }
+        sort() { this.values.sort((a, b) => a.priority - b.priority); }
+        isEmpty() { return this.values.length === 0; }
+    }
 
-        // Move Vertically to Target Floor
-        const targetY = targetPos.y;
-        if (targetY !== startY) {
-            // Spiral up/down? Just straight line for now
-            points.push(new THREE.Vector3(rampX, targetY + 2, 0));
+    function worldToGrid(pos, floorName) {
+        if (!layoutConfig || !layoutConfig[floorName]) return null;
+        const data = layoutConfig[floorName];
+        const rows = data.rows;
+        const cols = data.cols;
+        const width = cols * CELL_SIZE;
+        const depth = rows * CELL_SIZE;
+        const centerX = width / 2;
+        const centerY = depth / 2;
+
+        const c = Math.floor((pos.x + centerX) / CELL_SIZE);
+        const r = Math.floor((pos.z + centerY) / CELL_SIZE);
+
+        if (r >= 0 && r < rows && c >= 0 && c < cols) {
+            return { r, c };
+        }
+        return null;
+    }
+
+    function gridToWorld(r, c, floorName) {
+        if (!layoutConfig || !layoutConfig[floorName]) return new THREE.Vector3(0,0,0);
+        const data = layoutConfig[floorName];
+        const rows = data.rows;
+        const cols = data.cols;
+        const width = cols * CELL_SIZE;
+        const depth = rows * CELL_SIZE;
+        const centerX = width / 2;
+        const centerY = depth / 2;
+
+        const x = (c * CELL_SIZE) - centerX + (CELL_SIZE/2);
+        const z = (r * CELL_SIZE) - centerY + (CELL_SIZE/2);
+        const y = (floorMap[floorName] || 0) * FLOOR_HEIGHT;
+        return new THREE.Vector3(x, y + 2, z); // +2 for path height
+    }
+
+    function findPathOnFloor(floorName, startWorld, endWorld) {
+        if (!layoutConfig || !layoutConfig[floorName]) {
+            // Fallback: Direct Line
+            return [startWorld.clone(), endWorld.clone()];
+        }
+        
+        const data = layoutConfig[floorName];
+        const grid = data.grid;
+        const startNode = worldToGrid(startWorld, floorName);
+        const endNode = worldToGrid(endWorld, floorName);
+
+        if (!startNode || !endNode) return [startWorld.clone(), endWorld.clone()];
+
+        // Find nearest valid start/end if they are walls (simple correction)
+        // ... (Skipping complex correction for brevity, assuming standard inputs)
+
+        // A*
+        const rows = data.rows;
+        const cols = data.cols;
+        const pq = new PriorityQueue();
+        const startKey = `${startNode.r},${startNode.c}`;
+        const endKey = `${endNode.r},${endNode.c}`;
+
+        pq.enqueue(startNode, 0);
+        const cameFrom = {};
+        const costSoFar = {};
+        cameFrom[startKey] = null;
+        costSoFar[startKey] = 0;
+
+        let found = false;
+        let diffs = [[0, 1], [0, -1], [1, 0], [-1, 0]]; // Neighbours
+
+        while (!pq.isEmpty()) {
+            const current = pq.dequeue().val;
+            const currentKey = `${current.r},${current.c}`;
+
+            if (currentKey === endKey) {
+                found = true;
+                break;
+            }
+
+            for (let d of diffs) {
+                const nr = current.r + d[0];
+                const nc = current.c + d[1];
+                const nextKey = `${nr},${nc}`;
+
+                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                    const cell = grid[nr][nc];
+                    // Valid Types: road, entrance, exit. 
+                    // Target Slot is also valid (only if it matches endNode coords)
+                    // Start Slot (if occupied by us?)
+                    
+                    let walkable = (cell.type === 'road' || cell.type === 'entrance' || cell.type === 'exit');
+                    
+                    // Allow moving onto the target slot
+                    if (nr === endNode.r && nc === endNode.c) walkable = true;
+                    // Allow moving from start slot
+                    if (nr === startNode.r && nc === startNode.c) walkable = true;
+
+                    if (walkable) {
+                        const newCost = costSoFar[currentKey] + 1;
+                        if (!(nextKey in costSoFar) || newCost < costSoFar[nextKey]) {
+                            costSoFar[nextKey] = newCost;
+                            const priority = newCost + (Math.abs(endNode.r - nr) + Math.abs(endNode.c - nc)); // Heuristic
+                            pq.enqueue({r: nr, c: nc}, priority);
+                            cameFrom[nextKey] = current;
+                        }
+                    }
+                }
+            }
         }
 
-        // Move to Target
-        points.push(new THREE.Vector3(targetPos.x, targetY + 2, targetPos.z));
+        if (!found) {
+            console.warn("No A* path found on floor " + floorName);
+            return [startWorld.clone(), endWorld.clone()];
+        }
 
-        const curve = new THREE.CatmullRomCurve3(points);
-        const tub = new THREE.TubeGeometry(curve, 64, 0.5, 8, false);
-        const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        // Reconstruct
+        let curr = endNode;
+        const path = [];
+        while (curr) {
+            path.push(gridToWorld(curr.r, curr.c, floorName));
+            curr = cameFrom[`${curr.r},${curr.c}`];
+        }
+        return path.reverse();
+    }
+
+    // New createNeonPath logic
+    function createNeonPath(targetPos, targetFloor) {
+        document.getElementById('steps-container').innerHTML = ''; // Clear strict steps
+        
+        const points = [];
+        
+        // 1. Entrance Point (Assume G)
+        const startFloor = 'G'; // Configurable?
+        const startY = (floorMap[startFloor] || 0) * FLOOR_HEIGHT;
+        const startPos = new THREE.Vector3(entrancePosition.x, startY + 2, entrancePosition.z);
+        
+        // Ramp Point (Configured or inferred)
+        const rampX = parseFloat(config.path_ramp_x || -45);
+        // Find a specific "Ramp Access" cell on the grid? 
+        // We'll define a virtual point at (rampX, midZ) for simplicity
+        const rampPos = new THREE.Vector3(rampX, startY + 2, 0); 
+        // Ideally we snap rampPos to the nearest road cell on that floor
+        
+        if (targetFloor === startFloor) {
+            // Same Floor Path
+            const subPath = findPathOnFloor(startFloor, startPos, targetPos);
+            points.push(...subPath);
+        } else {
+            // Multi-Floor Path
+            
+            // A: Start -> Ramp (on StartFloor)
+            const pathToRamp = findPathOnFloor(startFloor, startPos, rampPos);
+            points.push(...pathToRamp);
+            
+            // B: Vertical Travel (Ramp Stack)
+            const targetY = (floorMap[targetFloor] || 0) * FLOOR_HEIGHT;
+            const rampTargetPos = new THREE.Vector3(rampX, targetY + 2, 0);
+            
+            // Add intermediate points for spiral effect?
+            // Simple Line up
+            points.push(rampTargetPos);
+            
+            // C: Ramp -> Target (on TargetFloor)
+            const pathFromRamp = findPathOnFloor(targetFloor, rampTargetPos, targetPos);
+            points.push(...pathFromRamp);
+        }
+
+        // SMOOTHING
+        // A* produces jagged grid movements. CatmullRom handles smoothing, 
+        // but we might want to reduce points or jitter.
+        // Unifying duplicates
+        const uniquePoints = [];
+        if (points.length > 0) uniquePoints.push(points[0]);
+        for(let i=1; i<points.length; i++) {
+            if (points[i].distanceTo(points[i-1]) > 0.1) {
+                uniquePoints.push(points[i]);
+            }
+        }
+
+        if (uniquePoints.length < 2) {
+            uniquePoints.push(targetPos); // Safety
+        }
+
+        const curve = new THREE.CatmullRomCurve3(uniquePoints); //, false, 'catmullrom', 0.5);
+        const tub = new THREE.TubeGeometry(curve, uniquePoints.length * 4, 0.5, 8, false);
+        const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); 
         const mesh = new THREE.Mesh(tub, mat);
         scene.add(mesh);
 
@@ -489,6 +654,12 @@ $js_data = [
         arrow.rotation.x = Math.PI;
         scene.add(arrow);
         window.arrow = arrow;
+        
+        // Update Instructions
+        const div = document.createElement('div');
+        div.className = 'step';
+        div.innerHTML = `<div class="step-num">✓</div><div class="step-text">Path calculated. Follow the green line to Level ${targetFloor}.</div>`;
+        document.getElementById('steps-container').appendChild(div);
     }
 
     // Animation Loop

@@ -48,14 +48,19 @@ try {
     // Create Booking
     $pdo->beginTransaction();
     
-    $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, start_time, end_time, status) VALUES (?, ?, ?, ?, 'active')");
-    $stmt->execute([$user_id, $slot_id, $start_time, $end_time]);
-    
-    // Update slot occupancy if booking starts now
-    if (strtotime($start_time) <= time() && strtotime($end_time) > time()) {
-        $pdo->prepare("UPDATE parking_slots SET is_occupied = 1 WHERE id = ?")->execute([$slot_id]);
+    // Generate unique access code
+    $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6)); // Short 6-char code
+    // Ensure uniqueness (simple check, collision rare but possible)
+    while($pdo->query("SELECT count(*) FROM bookings WHERE access_code = '$access_code'")->fetchColumn() > 0) {
+        $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
     }
 
+    $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, start_time, end_time, status, access_code) VALUES (?, ?, ?, ?, 'active', ?)");
+    $stmt->execute([$user_id, $slot_id, $start_time, $end_time, $access_code]);
+    
+    // NOTE: We do NOT mark is_occupied = 1 here anymore. 
+    // Occupancy is triggered by the Entry Scan at the gate.
+    
     $pdo->commit();
 
     echo json_encode([

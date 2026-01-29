@@ -12,6 +12,8 @@ if (!isset($_SESSION['admin_id'])) {
 require 'db.php';
 
 // Fetch Logs
+// TODO: Ideally filter logs by lot if possible. For now, assuming Global logs or unimplemented lot_id in logs.
+// If we want to be strict, we could hide logs for Lot Admins or only show their own actions.
 $logs = $pdo->query("SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50")->fetchAll();
 
 include 'includes/header.php';

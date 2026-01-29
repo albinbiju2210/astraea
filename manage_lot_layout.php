@@ -78,7 +78,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_add_slots'])) {
         }
     }
     
-    echo json_encode(['status' => 'success', 'added' => $added]);
+    // Get total count
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM parking_slots WHERE lot_id = ? AND floor_level = ?");
+    $countStmt->execute([$lot_id, $floor]);
+    $total = $countStmt->fetchColumn();
+    
+    echo json_encode(['status' => 'success', 'added' => $added, 'total' => $total]);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clear_floor_slots'])) {
+    $floor = $_POST['floor_level'];
+    
+    // Check for bookings? For now, we allow admin to force delete.
+    // Ideally we should warn if bookings exist, but let's assume Layout Editor is for setup.
+    // Deleting slots will cascade delete bookings if FK is set up, or leave orphaned bookings.
+    // Let's assume loose coupling or Admin knows best.
+    
+    $stmt = $pdo->prepare("DELETE FROM parking_slots WHERE lot_id = ? AND floor_level = ?");
+    $stmt->execute([$lot_id, $floor]);
+    $deleted = $stmt->rowCount();
+    
+    // Also clear them from the layout grid config
+    // We need to fetch config, iterate grid, remove slot_id/slot_number from 'slot' cells
+    $lotStmt = $pdo->prepare("SELECT config FROM parking_lots WHERE id = ?");
+    $lotStmt->execute([$lot_id]);
+    $lData = $lotStmt->fetch();
+    $conf = $lData ? (json_decode($lData['config'], true) ?? []) : [];
+    
+    if (isset($conf['layouts'][$floor]['grid'])) {
+        $grid = $conf['layouts'][$floor]['grid'];
+        $newGrid = [];
+        foreach ($grid as $row) {
+            $newRow = [];
+            foreach ($row as $cell) {
+                if (($cell['type'] ?? '') === 'slot') {
+                    $newRow[] = ['type' => 'wall']; // Reset to wall or just remove slot data? Reset to wall is safer visually.
+                } else {
+                    $newRow[] = $cell;
+                }
+            }
+            $newGrid[] = $newRow;
+        }
+        $conf['layouts'][$floor]['grid'] = $newGrid;
+        
+        $update = $pdo->prepare("UPDATE parking_lots SET config = ? WHERE id = ?");
+        $update->execute([json_encode($conf), $lot_id]);
+    }
+
+    echo json_encode(['status' => 'success', 'deleted' => $deleted]);
     exit;
 }
 
@@ -94,6 +142,26 @@ if ($lot_id) {
 $slots_by_floor = [];
 foreach ($slots as $s) {
     $slots_by_floor[$s['floor_level']][] = $s;
+}
+
+// Fetch Defined Floors (Structure)
+$defined_floors = [];
+$structure_mode = 'defined'; // 'defined' or 'inferred'
+
+if ($lot_id) {
+    try {
+        $stmt = $pdo->prepare("SELECT floor_name FROM parking_floors WHERE lot_id = ? ORDER BY floor_order ASC");
+        $stmt->execute([$lot_id]);
+        $defined_floors = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Exception $e) {
+        // Table might not exist or empty
+    }
+}
+
+if (empty($defined_floors)) {
+    // DO NOT Default to 'G'. 
+    // Strict Mode: If no structure, user must define it.
+    // $defined_floors = ['G']; 
 }
 
 include 'includes/header.php';
@@ -324,8 +392,39 @@ include 'includes/header.php';
         text-align: center;
     }
 
+    .quick-add-btn {
+        width: 100%;
+        border: none;
+        background: #27272a;
+        color: #a1a1aa;
+        font-size: 0.8em;
+        padding: 8px;
+        cursor: pointer;
+        border-radius: 4px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .quick-add-btn:hover {
+        background: #3f3f46;
+        color: white;
+    }
+
 </style>
 
+<?php if (empty($defined_floors)): ?>
+    <div style="height: calc(100vh - 80px); display:flex; flex-direction:column; justify-content:center; align-items:center; background:#0f0f11; color:white; text-align:center;">
+        <div style="font-size:3em; margin-bottom:20px; opacity:0.5;">🏗️</div>
+        <h2 style="margin-bottom:10px;">Structure Not Defined</h2>
+        <p style="color:#a1a1aa; margin-bottom:30px; max-width:400px; line-height:1.6;">
+            This parking lot has no floors configured. <br>
+            Please define the building structure (floors, levels) before designing the layout.
+        </p>
+        <div style="display:flex; gap:15px;">
+            <a href="manage_lots.php" class="btn">Manage Structure</a>
+            <a href="admin_home.php" class="btn btn-secondary">Back to Dashboard</a>
+        </div>
+    </div>
+<?php else: ?>
 <div class="layout-editor">
     
     <!-- LEFT SIDEBAR -->
@@ -355,15 +454,23 @@ include 'includes/header.php';
 
             <div style="border-bottom:1px solid #27272a; margin-bottom:15px;"></div>
 
-             <!-- Quick Add Slots -->
+             <!-- Define Capacity -->
             <div style="margin-bottom:20px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px;">
-                <h4 style="margin:0 0 8px 0; font-size:0.85em; color:#a1a1aa;">Add Slots to Current Floor</h4>
-                <div style="display:flex; gap:5px; margin-bottom:5px;">
-                    <input id="qs-prefix" placeholder="Pfx" style="width:40px; background:#27272a; border:1px solid #3f3f46; color:white; padding:4px; font-size:0.8em;">
-                    <input id="qs-start" type="number" placeholder="Start" style="flex:1; background:#27272a; border:1px solid #3f3f46; color:white; padding:4px; font-size:0.8em;">
-                    <input id="qs-end" type="number" placeholder="End" style="flex:1; background:#27272a; border:1px solid #3f3f46; color:white; padding:4px; font-size:0.8em;">
+                <h4 style="margin:0 0 10px 0; font-size:0.9em; text-transform:uppercase; letter-spacing:1px; color:#71717a;">Define Floor Capacity</h4>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:10px;">
+                    <div>
+                        <label style="display:block; font-size:0.75em; color:#a1a1aa; margin-bottom:4px;">Prefix</label>
+                        <input id="qs-prefix" value="Slot-" style="width:100%; background:#27272a; border:1px solid #3f3f46; color:white; padding:6px; font-size:0.8em; border-radius:4px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.75em; color:#a1a1aa; margin-bottom:4px;">Total Slots</label>
+                        <input id="qs-total" type="number" placeholder="50" style="width:100%; background:#27272a; border:1px solid #3f3f46; color:white; padding:6px; font-size:0.8em; border-radius:4px;">
+                    </div>
                 </div>
-                <button onclick="quickAddSlots()" style="width:100%; border:none; background:#27272a; color:#a1a1aa; font-size:0.8em; padding:6px; cursor:pointer; border-radius:4px;">Generate Slots</button>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="defineCapacity()" class="quick-add-btn" style="flex:2;">Set Capacity</button>
+                    <button onclick="clearFloorSlots()" class="quick-add-btn" style="flex:1; background:#7f1d1d; color:#fca5a5;">Clear</button>
+                </div>
             </div>
 
             <div style="border-bottom:1px solid #27272a; margin-bottom:15px;"></div>
@@ -390,12 +497,34 @@ include 'includes/header.php';
                 </div>
             </div>
 
-            <div id="slot-selector-area" style="display:none;">
-                <h4 style="margin:0 0 10px 0; font-size:0.9em; text-transform:uppercase; letter-spacing:1px; color:#71717a;">Assign Slot</h4>
-                <div style="margin-bottom:10px; font-size:0.8em; color:#a1a1aa;">Select a slot below to place it:</div>
-                <div class="slot-list" id="slot-list-container">
-                    <!-- Populated by JS -->
+            <div id="slot-selector-area" style="display:none; background:#27272a; padding:10px; border-radius:6px; border:1px solid #3f3f46;">
+                <h4 style="margin:0 0 10px 0; font-size:0.9em; text-transform:uppercase; letter-spacing:1px; color:#71717a;">Placement Mode</h4>
+                
+                <div style="font-size:0.85em; color:#a1a1aa; margin-bottom:10px;">
+                    Click grid to place. Use arrows to change slot.
                 </div>
+
+                <div style="background:rgba(0,0,0,0.3); padding:8px; border-radius:4px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <button onclick="changeSlot(-1)" class="tool-btn" style="padding:4px 8px; font-size:1.2em; border:none; background:transparent;">&lsaquo;</button>
+                    <div style="text-align:center;">
+                         <div style="color:#71717a; font-size:0.75em; margin-bottom:2px;">CURRENT SLOT</div>
+                         <strong id="next-slot-display" style="color:#fff; font-size:1.1em; display:inline-block; min-width:80px;">---</strong>
+                    </div>
+                    <button onclick="changeSlot(1)" class="tool-btn" style="padding:4px 8px; font-size:1.2em; border:none; background:transparent;">&rsaquo;</button>
+                </div>
+                
+                <div style="text-align:center; margin-bottom:10px;">
+                    <label style="font-size:0.8em; color:#a1a1aa; cursor:pointer; user-select:none;">
+                        <input type="checkbox" id="auto-advance-chk" checked onchange="updateAutoAdvance()"> Auto-Advance
+                    </label>
+                </div>
+
+                <div style="font-size:0.8em; color:#52525b; text-align:center;">
+                    Unplaced: <span id="unplaced-count">0</span> / Total: <span id="total-count">0</span>
+                </div>
+                
+                <!-- Hidden list container for logic transparency if needed -->
+                <div class="slot-list" id="slot-list-container" style="display:none;"></div>
             </div>
 
         </div>
@@ -421,15 +550,17 @@ include 'includes/header.php';
 
     </div>
 </div>
+<?php endif; ?>
 
 <script>
 // Data from PHP
 const slotsData = <?php echo json_encode($slots_by_floor); ?>;
 const existingLayouts = <?php echo json_encode($current_config['layouts'] ?? new stdClass()); ?>;
 const lotId = <?php echo json_encode($lot_id); ?>;
+const definedFloors = <?php echo json_encode($defined_floors); ?>;
 
 // State
-let currentFloor = 'G';
+let currentFloor = definedFloors.length > 0 ? definedFloors[0] : 'G';
 let gridRows = 15;
 let gridCols = 20;
 let gridData = []; // 2D array or flat map
@@ -448,17 +579,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initFloorTabs() {
-    const defaultFloors = ['B2', 'B1', 'G', 'L1', 'L2', 'L3'];
-    // Merge with keys from slotsData to ensure we have tabs for floors with slots
-    const slotFloors = Object.keys(slotsData);
-    const savedFloors = Object.keys(existingLayouts);
-    
-    const allFloors = [...new Set([...defaultFloors, ...slotFloors, ...savedFloors])].sort();
-    
     const tabsContainer = document.getElementById('floor-tabs');
     tabsContainer.innerHTML = '';
     
-    allFloors.forEach(f => {
+    definedFloors.forEach(f => {
         const div = document.createElement('div');
         div.className = 'floor-pill';
         div.innerText = f;
@@ -493,6 +617,29 @@ function loadFloor(floor) {
     // Update dimensions inputs
     document.getElementById('grid-rows').value = gridRows;
     document.getElementById('grid-cols').value = gridCols;
+
+    // UPDATE CAPACITY INPUTS
+    const currentSlots = slotsData[floor] || [];
+    const count = currentSlots.length;
+    document.getElementById('qs-total').value = count > 0 ? count : '';
+    
+    // Guess prefix if exists
+    if (count > 0) {
+        // Simple guess: "G-001" -> "G-"
+        // regex to take everything before the last number group
+        const first = currentSlots[0].slot_number;
+        const match = first.match(/^(.*?)(\d+)$/);
+        if (match && match[1]) {
+            document.getElementById('qs-prefix').value = match[1];
+        } else {
+            // fallback: try to find common non-digit prefix? or just leave default
+            document.getElementById('qs-prefix').value = "Slot-"; 
+        }
+    } else {
+         // Default prefix suggestion based on floor name
+         // e.g. "G" -> "G-"
+         document.getElementById('qs-prefix').value = floor + "-";
+    }
 
     renderGrid();
     renderSlotList();
@@ -569,56 +716,50 @@ function applyCellVisuals(div, data) {
     }
 }
 
+// Slot Navigation State
+let floorSlotsList = []; // All slots for current floor
+let currentSlotIndex = 0;
+let autoAdvance = true;
+
+function updateAutoAdvance() {
+    autoAdvance = document.getElementById('auto-advance-chk').checked;
+}
+
 function handlePaint(r, c) {
     const cell = gridData[r][c];
     
     if (currentTool === 'erase') {
-        // If unsetting a slot, we need to free it up
         gridData[r][c] = { type: 'wall' };
+        renderSlotList(); // Update unplaced count
     } 
     else if (currentTool === 'slot') {
-        // Must have a selected slot
         if (!selectedSlotForPlacement) {
             highlightSlotListError();
             return;
         }
-        // Force slot type
         gridData[r][c] = {
             type: 'slot',
             slot_id: selectedSlotForPlacement.id,
             slot_number: selectedSlotForPlacement.slot_number
         };
-        // Auto-deselect used slot or keep specific logic?
-        // Let's keep it selected to allow moving it, but ideally each slot is unique on map.
-        // We should warn if placing same slot multiple times?
-        // For now, allow overwrite.
+        
+        renderSlotList(); // Update counts
+        
+        // Auto Advance?
+        if (autoAdvance) {
+            changeSlot(1);
+        }
     }
     else {
-        // Wall, Road, Entrance, Exit
         gridData[r][c] = { type: currentTool };
     }
 
-    // Update DOM
     const div = document.querySelector(`.cell[data-r='${r}'][data-c='${c}']`);
     if(div) applyCellVisuals(div, gridData[r][c]);
-    
-    // If we just placed a slot, update list to show strike-through
-    if (currentTool === 'slot' || currentTool === 'erase') {
-        renderSlotList();
-    }
 }
 
 function renderSlotList() {
-    const list = document.getElementById('slot-list-container');
-    list.innerHTML = '';
-    
-    const floorSlots = slotsData[currentFloor] || [];
-    if (floorSlots.length === 0) {
-        list.innerHTML = '<div style="padding:10px; color:#555;">No slots found for this floor. Adds slots in Manage Slots.</div>';
-        return;
-    }
-
-    // Find which IDs are already placed
+    // Determine which slots are on the map
     const placedIds = new Set();
     gridData.forEach(row => {
         row.forEach(cell => {
@@ -628,30 +769,85 @@ function renderSlotList() {
         });
     });
 
-    floorSlots.forEach(slot => {
-        const div = document.createElement('div');
-        div.className = 'slot-item';
-        if (placedIds.has(String(slot.id))) {
-            div.classList.add('placed');
-        }
-        
-        if (selectedSlotForPlacement && String(selectedSlotForPlacement.id) === String(slot.id)) {
-            div.classList.add('selected');
-        }
-
-        div.innerHTML = `<span>${slot.slot_number}</span>`;
-        div.onclick = () => {
-            if(div.classList.contains('placed')) return;
-            selectSlotForPlacement(slot);
-        };
-        list.appendChild(div);
-    });
+    // Update global list
+    floorSlotsList = slotsData[currentFloor] || [];
+    const total = floorSlotsList.length;
+    
+    // Count unplaced
+    const unplacedCount = floorSlotsList.filter(s => !placedIds.has(String(s.id))).length;
+    
+    // Update UI
+    document.getElementById('total-count').innerText = total;
+    document.getElementById('unplaced-count').innerText = unplacedCount;
+    
+    if (floorSlotsList.length === 0) {
+        document.getElementById('next-slot-display').innerText = "No Slots";
+        selectedSlotForPlacement = null;
+        return;
+    }
+    
+    // Initial Load or Refresh: Try to find first unplaced if not manually navigating
+    // Only if current selection is invalid or null? 
+    // Actually, let's keep current position unless it's invalid.
+    if (!selectedSlotForPlacement && floorSlotsList.length > 0) {
+        // Find first unplaced index
+        const idx = floorSlotsList.findIndex(s => !placedIds.has(String(s.id)));
+        currentSlotIndex = (idx !== -1) ? idx : 0;
+        updateDisplaySlot();
+    } else {
+        // Just refresh display (e.g. if we navigated back to a placed slot)
+        updateDisplaySlot();
+    }
 }
 
-function selectSlotForPlacement(slot) {
-    selectedSlotForPlacement = slot;
-    setTool('slot');
-    renderSlotList(); // highlight selected
+function updateDisplaySlot() {
+    if (floorSlotsList.length === 0) return;
+    
+    // Safety check
+    if (currentSlotIndex < 0) currentSlotIndex = 0;
+    if (currentSlotIndex >= floorSlotsList.length) currentSlotIndex = 0;
+
+    const s = floorSlotsList[currentSlotIndex];
+    const displayEl = document.getElementById('next-slot-display');
+    
+    if (s) {
+        selectedSlotForPlacement = s;
+        displayEl.innerText = s.slot_number;
+        
+        // Check if placed
+        // We need to know if THIS slot is placed to style it.
+        // Re-scan grid or check ID? Re-scan is expensive? 
+        // Optimization: renderSlotList already scanned. We can cache placedIds or just scan again.
+        // Scanning 20x20 is cheap.
+        let isPlaced = false;
+        outer: for(let r of gridData) {
+            for(let c of r) {
+                if(c.type==='slot' && String(c.slot_id) === String(s.id)) {
+                    isPlaced = true; 
+                    break outer;
+                }
+            }
+        }
+        
+        if (isPlaced) {
+            displayEl.style.color = '#4ade80'; // Green if placed
+            displayEl.innerText += " ✓";
+        } else {
+            displayEl.style.color = '#fff';
+        }
+    }
+}
+
+function changeSlot(dir) {
+    if (floorSlotsList.length === 0) return;
+    
+    currentSlotIndex += dir;
+    
+    // Wrap around logic
+    if (currentSlotIndex < 0) currentSlotIndex = floorSlotsList.length - 1;
+    if (currentSlotIndex >= floorSlotsList.length) currentSlotIndex = 0;
+    
+    updateDisplaySlot();
 }
 
 function setTool(tool) {
@@ -661,17 +857,15 @@ function setTool(tool) {
     const slotArea = document.getElementById('slot-selector-area');
     if (tool === 'slot') {
         slotArea.style.display = 'block';
+        renderSlotList(); // Ensure next slot is calculated
     } else {
         slotArea.style.display = 'none';
-        selectedSlotForPlacement = null; // Clear selection if switching tool
-        renderSlotList();
+        // selectedSlotForPlacement = null; // Do not clear, just hide UI? No, safe to keep context.
     }
 }
 
 function updateToolUI() {
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-    // Find button with onclick containing the tool name
-    // Simple lookup:
     const map = { 'wall':0, 'road':1, 'entrance':2, 'exit':3, 'slot':4, 'erase':5 };
     const idx = map[currentTool];
     if (idx !== undefined) document.querySelectorAll('.tool-btn')[idx].classList.add('active');
@@ -729,26 +923,27 @@ function highlightSlotListError() {
     el.style.transition = '0.2s';
     el.style.border = '2px solid #ef4444';
     el.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.4)';
-    el.style.borderRadius = '8px';
     
-    // reset after 500ms
     setTimeout(() => {
-        el.style.border = 'none';
+        el.style.border = '1px solid #3f3f46';
         el.style.boxShadow = 'none';
     }, 500);
 }
 
-async function quickAddSlots() {
+async function defineCapacity() {
     const prefix = document.getElementById('qs-prefix').value.trim();
-    const start = document.getElementById('qs-start').value;
-    const end = document.getElementById('qs-end').value;
+    const total = document.getElementById('qs-total').value;
     
-    if(!start || !end) {
-        alert("Please enter Start and End numbers");
+    if(!total || total < 1) {
+        alert("Please enter a valid number of slots.");
         return;
     }
     
-    if(confirm(`Generate slots ${prefix}${start} to ${prefix}${end} for floor ${currentFloor}?`)) {
+    // We assume 1 to Total.
+    const start = 1;
+    const end = total;
+    
+    if(confirm(`Ensure floor ${currentFloor} has at least ${total} slots (${prefix}${start} to ${prefix}${end})?`)) {
         const formData = new FormData();
         formData.append('quick_add_slots', 1);
         formData.append('floor_level', currentFloor);
@@ -763,8 +958,42 @@ async function quickAddSlots() {
             });
             const json = await res.json();
             if(json.status === 'success') {
-                alert(`Added ${json.added} slots.`);
-                location.reload(); // Reload to fetch new slots
+                let msg = `Capacity Checked.`;
+                if(json.added > 0) {
+                    msg += ` Added ${json.added} new slots.`;
+                } else {
+                    msg += ` No new slots added (Target capacity already met).`;
+                }
+                msg += `\nTotal Slots on ${currentFloor}: ${json.total}`;
+                alert(msg);
+                location.reload(); 
+            } else {
+                alert("Error: " + json.message);
+            }
+        } catch(e) {
+            console.error(e);
+            alert("Request failed");
+        }
+    }
+}
+
+async function clearFloorSlots() {
+    if(confirm("Are you sure you want to DELETE ALL slots on this floor? This action is irreversible and may affect bookings if any exist.")) {
+        if(!confirm("Double check: Really delete all slots for " + currentFloor + "?")) return;
+        
+        const formData = new FormData();
+        formData.append('clear_floor_slots', 1);
+        formData.append('floor_level', currentFloor);
+        
+        try {
+            const res = await fetch('manage_lot_layout.php?lot_id=' + lotId, {
+                method: 'POST',
+                body: formData
+            });
+            const json = await res.json();
+            if(json.status === 'success') {
+                alert(`Deleted ${json.deleted} slots.`);
+                location.reload();
             } else {
                 alert("Error: " + json.message);
             }

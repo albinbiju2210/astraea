@@ -69,9 +69,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } elseif ($_POST['action'] === 'delete_floor') {
             $floor_id = $_POST['floor_id'];
-            $stmt = $pdo->prepare("DELETE FROM parking_floors WHERE id = ?");
+            
+            // Fetch info before delete to cascade
+            $stmt = $pdo->prepare("SELECT lot_id, floor_name FROM parking_floors WHERE id = ?");
             $stmt->execute([$floor_id]);
-            $success = "Floor deleted.";
+            $fInfo = $stmt->fetch();
+            
+            if ($fInfo) {
+                $fLotId = $fInfo['lot_id'];
+                $fName = $fInfo['floor_name'];
+                
+                // 1. Delete Slots (Cascade)
+                // Note: bookings might be linked to slots. If FK is ON DELETE SET NULL/CASCADE it handles it.
+                // Otherwise this might fail or orphan bookings. Assuming loose coupling for now as requested.
+                $delSlots = $pdo->prepare("DELETE FROM parking_slots WHERE lot_id = ? AND floor_level = ?");
+                $delSlots->execute([$fLotId, $fName]);
+                $slotsRemoved = $delSlots->rowCount();
+                
+                // 2. Clear from Layout Config JSON
+                $lotStmt = $pdo->prepare("SELECT config FROM parking_lots WHERE id = ?");
+                $lotStmt->execute([$fLotId]);
+                $lData = $lotStmt->fetch();
+                $conf = $lData ? (json_decode($lData['config'], true) ?? []) : [];
+                
+                if (isset($conf['layouts'][$fName])) {
+                    unset($conf['layouts'][$fName]);
+                    $pdo->prepare("UPDATE parking_lots SET config = ? WHERE id = ?")
+                        ->execute([json_encode($conf), $fLotId]);
+                }
+                
+                // 3. Delete the Floor
+                $stmt = $pdo->prepare("DELETE FROM parking_floors WHERE id = ?");
+                $stmt->execute([$floor_id]);
+                
+                $success = "Floor '$fName' deleted. ($slotsRemoved slots removed)";
+            } else {
+                $error = "Floor not found.";
+            }
         } 
         
         // PRESETS
@@ -166,9 +200,9 @@ include 'includes/header.php';
                         <label style="display:block; text-align:left; font-size:0.9rem; margin-bottom:5px;">Floor Name (e.g. L1, G)</label>
                         <input class="input" name="floor_name" required placeholder="Name">
                         
-                        <label style="display:block; text-align:left; font-size:0.9rem; margin-bottom:5px;">Order (Sort Index)</label>
+                        <label style="display:block; text-align:left; font-size:0.9rem; margin-bottom:5px;">Floor Level Number</label>
                         <input class="input" type="number" name="floor_order" required value="0" placeholder="0">
-                        <small style="display:block; text-align:left; color:var(--muted); margin-bottom:10px;">Lower numbers appear at bottom (B1=-1, G=0, L1=1)</small>
+                        <small style="display:block; text-align:left; color:var(--muted); margin-bottom:10px;">Use -1 for Basement, 0 for Ground, 1 for First Floor, etc.</small>
 
                         <button class="btn mt-3" type="submit">Add Floor</button>
                     </form>
@@ -187,7 +221,7 @@ include 'includes/header.php';
                                         <strong style="font-size:1.2rem;"><?php echo htmlspecialchars($f['floor_name']); ?></strong>
                                         <span style="color:var(--muted); margin-left:10px;">(Order: <?php echo $f['floor_order']; ?>)</span>
                                     </div>
-                                    <form method="post" onsubmit="return confirm('Delete floor? Slots mapped to this floor name will remain but might need manual update.');">
+                                    <form method="post" onsubmit="return confirm('WARNING: Are you sure? This will DELETE ALL SLOTS and layout data for this floor.');">
                                         <input type="hidden" name="action" value="delete_floor">
                                         <input type="hidden" name="floor_id" value="<?php echo $f['id']; ?>">
                                         <button class="small-btn btn-danger" title="Delete">x</button>

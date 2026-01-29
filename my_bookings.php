@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Fetch Bookings
 $sql = "
-    SELECT b.*, l.name as lot_name, l.address, s.slot_number 
+    SELECT b.*, b.access_code, l.name as lot_name, l.address, s.slot_number 
     FROM bookings b
     JOIN parking_slots s ON b.slot_id = s.id
     JOIN parking_lots l ON s.lot_id = l.id
@@ -138,6 +138,19 @@ include 'includes/header.php';
                         </div>
                         
                         <small style="display:block; margin-top:10px; color:var(--muted); border-top:1px solid #eee; padding-top:5px;"><?php echo htmlspecialchars($b['address']); ?></small>
+                        
+                        <?php if($b['status']=='active'): ?>
+                            <div style="margin-top:15px; background:#fff; padding:10px; border:1px dashed #ccc; border-radius:8px; display:flex; align-items:center; gap:15px;">
+                                <?php $code = $b['access_code'] ?? 'PENDING'; ?>
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=<?php echo $code; ?>" alt="QR" style="border-radius:4px;">
+                                <div>
+                                    <div style="font-size:0.75rem; color:#666; text-transform:uppercase; letter-spacing:1px;">Validation Code</div>
+                                    <div style="font-size:1.5rem; font-weight:800; letter-spacing:2px; font-family:monospace;"><?php echo $code; ?></div>
+                                    <div style="font-size:0.7rem; color:var(--primary);">Scan QR or Enter this code at Gate</div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
                     </div>
                 <?php endforeach; ?>
             </div>

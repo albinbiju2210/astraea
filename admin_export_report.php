@@ -40,43 +40,63 @@ try {
     
     // 3. Gather Data
     
+    // 3. Gather Data
+    // Filter by Lot if applicable
+    $lot_filter = "";
+    $params = [$start_date, $end_date];
+    
+    if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
+        $lot_filter = " AND s.lot_id = ?";
+        $params[] = $_SESSION['admin_lot_id'];
+    }
+
     // Summary Stats
-    $total_bookings = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE created_at BETWEEN ? AND ?");
-    $total_bookings->execute([$start_date, $end_date]);
+    // Need to join slots for lot info
+    $sql = "SELECT COUNT(*) FROM bookings b JOIN parking_slots s ON b.slot_id = s.id WHERE b.created_at BETWEEN ? AND ?" . $lot_filter;
+    $total_bookings = $pdo->prepare($sql);
+    $total_bookings->execute($params);
     $count_bookings = $total_bookings->fetchColumn();
 
-    $unique_users = $pdo->prepare("SELECT COUNT(DISTINCT user_id) FROM bookings WHERE created_at BETWEEN ? AND ?");
-    $unique_users->execute([$start_date, $end_date]);
+    $sql = "SELECT COUNT(DISTINCT b.user_id) FROM bookings b JOIN parking_slots s ON b.slot_id = s.id WHERE b.created_at BETWEEN ? AND ?" . $lot_filter;
+    $unique_users = $pdo->prepare($sql);
+    $unique_users->execute($params);
     $count_users = $unique_users->fetchColumn();
 
-    $penalties = $pdo->prepare("SELECT COUNT(*), SUM(penalty) FROM bookings WHERE status='active' AND end_time < NOW() AND created_at BETWEEN ? AND ?");
-    $penalties->execute([$start_date, $end_date]);
+    $sql = "SELECT COUNT(*), SUM(b.penalty) FROM bookings b JOIN parking_slots s ON b.slot_id = s.id WHERE b.status='active' AND b.end_time < NOW() AND b.created_at BETWEEN ? AND ?" . $lot_filter;
+    $penalties = $pdo->prepare($sql);
+    $penalties->execute($params);
     $penalty_res = $penalties->fetch();
     $count_penalties = $penalty_res[0];
     $total_penalty_amt = $penalty_res[1] ?? 0;
 
     // Daily Breakdown
-    $daily = $pdo->prepare("
-        SELECT DATE(created_at) as log_date, COUNT(*) as b_count 
-        FROM bookings 
-        WHERE created_at BETWEEN ? AND ? 
-        GROUP BY DATE(created_at) 
+    $sql = "
+        SELECT DATE(b.created_at) as log_date, COUNT(*) as b_count 
+        FROM bookings b 
+        JOIN parking_slots s ON b.slot_id = s.id
+        WHERE b.created_at BETWEEN ? AND ? 
+        $lot_filter
+        GROUP BY DATE(b.created_at) 
         ORDER BY log_date ASC
-    ");
-    $daily->execute([$start_date, $end_date]);
+    ";
+    $daily = $pdo->prepare($sql);
+    $daily->execute($params);
     $daily_data = $daily->fetchAll();
 
     // Top Users Analysis
-    $top_users = $pdo->prepare("
+    $sql = "
         SELECT u.name, u.email, COUNT(b.id) as booking_count 
         FROM bookings b 
         JOIN users u ON b.user_id = u.id 
+        JOIN parking_slots s ON b.slot_id = s.id
         WHERE b.created_at BETWEEN ? AND ? 
+        $lot_filter
         GROUP BY b.user_id 
         ORDER BY booking_count DESC 
         LIMIT 10
-    ");
-    $top_users->execute([$start_date, $end_date]);
+    ";
+    $top_users = $pdo->prepare($sql);
+    $top_users->execute($params);
     $top_users_data = $top_users->fetchAll();
 
 
