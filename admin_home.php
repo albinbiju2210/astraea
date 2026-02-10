@@ -160,6 +160,7 @@ try {
               </div>
               <div style="display:flex; gap:15px; flex-wrap:wrap;">
                   <a href="admin_entry_exit.php" class="btn" style="width:auto; padding:12px 24px; background:var(--primary); box-shadow:0 4px 10px rgba(0,0,0,0.2);">📷 Gate Scanner</a>
+                  <a href="admin_spot_registration.php" class="btn" style="width:auto; padding:12px 24px; background:#28a745; box-shadow:0 4px 10px rgba(40,167,69,0.2);">⚡ Spot Register</a>
                   <a href="manage_slots.php" class="btn btn-secondary" style="width:auto; padding:12px 24px;">Slot Register</a>
                   <a href="manage_bookings.php" class="btn btn-secondary" style="width:auto; padding:12px 24px;">All Bookings</a>
                   <a href="admin_reports.php" class="btn" style="width:auto; padding:12px 24px;">Reports & Logs</a>

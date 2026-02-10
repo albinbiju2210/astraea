@@ -33,11 +33,85 @@ include __DIR__ . '/includes/header.php';
       <div class="msg-error"><?php echo htmlspecialchars($error); ?></div>
     <?php endif; ?>
 
-    <form action="login_process.php" method="post" autocomplete="off" novalidate>
-      <input class="input" type="email" name="email" placeholder="Enter Email" required autofocus>
-      <input class="input" type="password" name="password" placeholder="Enter Password" required>
+    <div class="login-tabs" style="display:flex; justify-content:center; gap:20px; margin-bottom:20px;">
+        <button type="button" class="tab-btn active" onclick="switchTab('email')" id="tab-email">Email Login</button>
+        <button type="button" class="tab-btn" onclick="switchTab('vehicle')" id="tab-vehicle">Vehicle Login</button>
+    </div>
+
+    <form action="login_process.php" method="post" autocomplete="off" novalidate id="loginForm">
+      
+      <!-- Email Login Fields -->
+      <div id="email-fields">
+          <input class="input" type="email" name="email" id="email" placeholder="Enter Email" required autofocus>
+          <input class="input" type="password" name="password" id="password" placeholder="Enter Password" required>
+      </div>
+
+      <!-- Vehicle Login Fields -->
+      <div id="vehicle-fields" style="display:none;">
+          <input class="input" type="text" name="vehicle_number" id="vehicle_number" placeholder="Vehicle Number (e.g. KL-07-AB-1234)">
+          <input class="input" type="tel" name="phone" id="phone" placeholder="Phone Number">
+      </div>
+
       <button class="btn mt-4" type="submit">Login</button>
     </form>
+
+    <script>
+    function switchTab(type) {
+        // Update Buttons
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + type).classList.add('active');
+
+        // Toggle Fields
+        if (type === 'email') {
+            document.getElementById('email-fields').style.display = 'block';
+            document.getElementById('vehicle-fields').style.display = 'none';
+            
+            // Set Required
+            document.getElementById('email').required = true;
+            document.getElementById('password').required = true;
+            document.getElementById('vehicle_number').required = false;
+            document.getElementById('phone').required = false;
+            
+            // Clear others
+            document.getElementById('vehicle_number').value = '';
+            document.getElementById('phone').value = '';
+
+        } else {
+            document.getElementById('email-fields').style.display = 'none';
+            document.getElementById('vehicle-fields').style.display = 'block';
+
+            // Set Required
+            document.getElementById('email').required = false;
+            document.getElementById('password').required = false;
+            document.getElementById('vehicle_number').required = true;
+            document.getElementById('phone').required = true;
+
+            // Clear others
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
+        }
+    }
+    </script>
+    <style>
+    .tab-btn {
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-size: 1rem;
+        padding-bottom: 5px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+    .tab-btn.active {
+        color: var(--heading-text);
+        border-bottom: 2px solid var(--text);
+    }
+    .tab-btn:hover {
+        color: var(--text);
+    }
+    </style>
 
     <div class="helper" style="margin-top: 20px;">
       

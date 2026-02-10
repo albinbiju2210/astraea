@@ -19,8 +19,16 @@ $curr_stmt = $pdo->prepare("SELECT count(*) FROM bookings WHERE user_id = ? AND 
 $curr_stmt->execute([$user_id]);
 $active_count = $curr_stmt->fetchColumn();
 
-// Fetch Next Booking (just for display)
-$next_stmt = $pdo->prepare("SELECT * FROM bookings WHERE user_id = ? AND status = 'active' ORDER BY start_time ASC LIMIT 1");
+// Fetch Next Booking (Active or Upcoming)
+$next_stmt = $pdo->prepare("
+    SELECT b.*, s.slot_number, l.name as lot_name 
+    FROM bookings b 
+    JOIN parking_slots s ON b.slot_id = s.id 
+    JOIN parking_lots l ON s.lot_id = l.id
+    WHERE b.user_id = ? AND b.status = 'active' 
+    ORDER BY b.start_time ASC 
+    LIMIT 1
+");
 $next_stmt->execute([$user_id]);
 $next_booking = $next_stmt->fetch();
 
@@ -141,14 +149,29 @@ $history_count = $hist_stmt->fetchColumn();
       </div>
 
       <?php if ($next_booking): ?>
-            <div style="margin-top:40px; background: rgba(255,255,255,0.05); padding:24px; border-radius:16px; border:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <h3 style="margin-bottom:5px;">Upcoming Session</h3>
-                    <p style="color:var(--muted); margin:0;">
-                        Starts: <strong style="color:white;"><?php echo date('M d, H:i', strtotime($next_booking['start_time'])); ?></strong>
-                    </p>
+            <div style="margin-top:40px; background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); padding:24px; border-radius:16px; border:1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:20px;">
+                    <div>
+                        <span style="background:var(--primary); padding:4px 10px; border-radius:4px; font-size:0.8rem; font-weight:bold; letter-spacing:1px; margin-bottom:10px; display:inline-block;">ACTIVE PASS</span>
+                        <h2 style="margin:5px 0; font-size:1.8rem;"><?php echo htmlspecialchars($next_booking['lot_name']); ?></h2>
+                        <div style="font-size:1.1rem; color:var(--text); margin-top:5px;">
+                            Slot: <strong><?php echo htmlspecialchars($next_booking['slot_number']); ?></strong>
+                        </div>
+                        <p style="color:var(--muted); margin-top:5px; font-size:0.9rem;">
+                            Started: <strong style="color:white;"><?php echo date('M d, H:i', strtotime($next_booking['start_time'])); ?></strong>
+                        </p>
+                    </div>
+                    
+                    <div style="text-align:center; background:white; padding:15px; border-radius:12px; min-width:150px;">
+                        <div style="color:#000; font-size:0.8rem; font-weight:bold; letter-spacing:1px; margin-bottom:5px;">ACCESS CODE</div>
+                        <div style="color:#000; font-size:2.5rem; font-weight:800; letter-spacing:2px; line-height:1;"><?php echo htmlspecialchars($next_booking['access_code'] ?? '---'); ?></div>
+                        <div style="color:#666; font-size:0.7rem; margin-top:5px;">Use at Entry/Exit Gate</div>
+                    </div>
                 </div>
-                <a href="parking_navigation.php?booking_id=<?php echo $next_booking['id']; ?>" class="btn" style="width:auto; margin:0; padding:10px 20px;">Open Navigation</a>
+                
+                <div style="margin-top:20px; display:flex; gap:10px;">
+                    <a href="parking_navigation.php?booking_id=<?php echo $next_booking['id']; ?>" class="btn" style="width:auto; margin:0; padding:10px 20px;">Navigate to Slot</a>
+                </div>
             </div>
       <?php endif; ?>
 

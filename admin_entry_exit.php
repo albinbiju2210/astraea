@@ -61,26 +61,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
                 $msg = "Vehicle Entry Recorded.";
             } else {
-                // MARK EXIT
-                $update = $pdo->prepare("UPDATE bookings SET exit_time = NOW(), status = 'completed' WHERE id = ?");
-                $update->execute([$booking['id']]);
-                
-                // Free Slot
-                $pdo->prepare("UPDATE parking_slots SET is_occupied = 0 WHERE id = ?")->execute([$booking['slot_id']]);
-                
                 // Calculate Duration
                 $entry = strtotime($booking['entry_time']);
                 $exit = time();
-                $duration = ceil(($exit - $entry) / 60); // minutes
+                $duration_mins = ceil(($exit - $entry) / 60); 
+                $duration_hours = ceil($duration_mins / 60);
+
+                // Pricing Logic (Example: 20 per hour)
+                $RATE_PER_HOUR = 20;
+                $total_amount = $duration_hours * $RATE_PER_HOUR;
+
+                // MARK EXIT
+                // Update end_time to now (closing the indefinite booking)
+                $update = $pdo->prepare("UPDATE bookings SET exit_time = NOW(), end_time = NOW(), status = 'completed', total_amount = ? WHERE id = ?");
+                $update->execute([$total_amount, $booking['id']]);
+                
+                // Free Slot
+                $pdo->prepare("UPDATE parking_slots SET is_occupied = 0 WHERE id = ?")->execute([$booking['slot_id']]);
                 
                 $scan_result = [
                     'type' => 'exit',
                     'title' => 'Access Granted: EXIT',
                     'user' => $booking['user_name'],
-                    'total_time' => $duration . " mins",
+                    'total_time' => $duration_mins . " mins",
+                    'amount' => $total_amount, // Pass amount to view
                     'slot' => "Freed"
                 ];
-                $msg = "Vehicle Exit Recorded. Booking Completed.";
+                $msg = "Vehicle Exit Recorded. Payment Required: " . $total_amount;
             }
             
         } else {
@@ -119,7 +126,12 @@ include 'includes/header.php';
                     </div>
                 <?php endif; ?>
                 <?php if(isset($scan_result['total_time'])): ?>
-                     <div style="margin-top:5px;">Duration: <?php echo $scan_result['total_time']; ?></div>
+                     <div style="margin-top:5px;">Duration: <strong><?php echo $scan_result['total_time']; ?></strong></div>
+                <?php endif; ?>
+                <?php if(isset($scan_result['amount'])): ?>
+                     <div style="margin-top:10px; font-size:1.5rem; color:#dc3545; background:rgba(255,255,255,0.8); padding:5px 10px; border-radius:5px; font-weight:bold;">
+                        Pay: <?php echo number_format($scan_result['amount'], 2); ?>
+                     </div>
                 <?php endif; ?>
             </div>
             <script>
