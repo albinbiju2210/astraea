@@ -87,16 +87,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 // Generate unique access code
                 $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
                 
-                $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, status, access_code) VALUES (?, ?, ?, ?, ?, 'active', ?)");
+                $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, status, payment_status, access_code) VALUES (?, ?, ?, ?, ?, 'active', 'pending', ?)");
                 $stmt->execute([$user_id, $slot_id, $v_num, $s_time, $e_time, $access_code]);
+                $new_booking_id = $pdo->lastInsertId();
                 
                 // Optional: Update user's profile if empty
                 // if (empty($default_vehicle)) { ... }
                 
                 // Update real-time status ONLY if the booking starts NOW (or very close)
-                // For simplicity, we can set is_occupied if start_time is within 15 mins.
-                // But for now, let's trust the bookings table for future checks. 
-                // We update is_occupied for strict "current state"
                 if (strtotime($s_time) <= time() && strtotime($e_time) > time()) {
                     $pdo->prepare("UPDATE parking_slots SET is_occupied = 1 WHERE id = ?")->execute([$slot_id]);
                 }

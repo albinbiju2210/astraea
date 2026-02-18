@@ -48,7 +48,7 @@ include __DIR__ . '/includes/header.php';
 
       <!-- Vehicle Login Fields -->
       <div id="vehicle-fields" style="display:none;">
-          <input class="input" type="text" name="vehicle_number" id="vehicle_number" placeholder="Vehicle Number (e.g. KL-07-AB-1234)">
+          <input class="input" type="text" name="vehicle_number" id="vehicle_number" placeholder="Vehicle Number (e.g. KL-07-AB-1234)" style="text-transform:uppercase;" oninput="this.value = this.value.toUpperCase()">
           <input class="input" type="tel" name="phone" id="phone" placeholder="Phone Number">
       </div>
 

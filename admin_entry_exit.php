@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $entry_time = date('Y-m-d H:i:s'); // Marked IMMEDIATELY
             $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
 
-            $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, entry_time, status, access_code) VALUES (?, ?, ?, ?, ?, ?, 'active', ?)");
+            $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, entry_time, status, payment_status, access_code) VALUES (?, ?, ?, ?, ?, ?, 'active', 'pending', ?)");
             $stmt->execute([$user_id, $slot['id'], $vehicle_number, $start_time, $end_time, $entry_time, $access_code]);
             $booking_id = $pdo->lastInsertId();
 
@@ -179,9 +179,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // NO BOOKING FOUND -> POTENTIAL WALK-IN?
                 // If input looks like a vehicle number (legacy regex or just length), suggest walk-in
                 if (strlen($input) > 4) {
-                     // $error = "Booking not found. Register Walk-in?"; // REMOVED
-                     $show_walkin_form = true; // Use this flag in HTML
-                     $walkin_vehicle = $input;
+                     // CHECK: Is this vehicle already registered to a user?
+                     $check_user = $pdo->prepare("SELECT * FROM users WHERE vehicle_number = ? LIMIT 1");
+                     $check_user->execute([$input]);
+                     $existing_user = $check_user->fetch();
+
+                     if ($existing_user) {
+                         // AUTO-ALLOCATE (No form needed)
+                         // logic similar to 'walk_in_entry' but immediate
+                         try {
+                             $pdo->beginTransaction();
+
+                             // 1. Get User ID
+                             $user_id = $existing_user['id'];
+                             $user_name = $existing_user['name'];
+
+                             // 2. Find Slot (Default logic)
+                             $lot_id = $_SESSION['admin_lot_id'] ?? $pdo->query("SELECT id FROM parking_lots LIMIT 1")->fetchColumn();
+                             
+                             $stmt = $pdo->prepare("SELECT id, slot_number, floor_level FROM parking_slots WHERE lot_id = ? AND is_occupied = 0 AND is_maintenance = 0 LIMIT 1");
+                             $stmt->execute([$lot_id]);
+                             $slot = $stmt->fetch();
+                 
+                             if (!$slot) {
+                                 throw new Exception("No slots available.");
+                             }
+                 
+                             // 3. Create Booking
+                             $start_time = date('Y-m-d H:i:s');
+                             $end_time = date('Y-m-d H:i:s', strtotime("+5 years")); 
+                             $entry_time = date('Y-m-d H:i:s');
+                             $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
+                 
+                             $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, entry_time, status, payment_status, access_code) VALUES (?, ?, ?, ?, ?, ?, 'active', 'pending', ?)");
+                             $stmt->execute([$user_id, $slot['id'], $input, $start_time, $end_time, $entry_time, $access_code]);
+                 
+                             // Mark Occupied
+                             $pdo->prepare("UPDATE parking_slots SET is_occupied = 1 WHERE id = ?")->execute([$slot['id']]);
+                 
+                             $pdo->commit();
+                 
+                             $scan_result = [
+                                 'type' => 'entry',
+                                 'title' => 'Auto-Entry Registered',
+                                 'user' => $user_name,
+                                 'slot' => $slot['floor_level'] . '-' . $slot['slot_number'],
+                                 'time' => date('H:i')
+                             ];
+                             $msg = "Vehicle Found! Entry Recorded.";
+
+                         } catch (Exception $e) {
+                             $pdo->rollBack();
+                             $error = "Auto-Entry Error: " . $e->getMessage();
+                         }
+
+                     } else {
+                         // Unknown Vehicle -> Ask for Phone
+                         $show_walkin_form = true; 
+                         $walkin_vehicle = $input;
+                     }
                 } else {
                      $error = "Code/Vehicle not found.";
                 }

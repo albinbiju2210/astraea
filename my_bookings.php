@@ -120,6 +120,7 @@ include 'includes/header.php';
                             <?php 
                                 $is_overdue = ($b['status'] == 'active' && strtotime($b['end_time']) < time());
                                 $penalty = isset($b['penalty']) ? $b['penalty'] : 0;
+                                $payment_status = $b['payment_status'] ?? 'paid'; // Default to paid for old bookings
                             ?>
                             
                             <?php if($is_overdue): ?>
@@ -129,7 +130,11 @@ include 'includes/header.php';
                             <?php elseif($b['status']=='cancelled'): ?>
                                 <span style="background:#f8d7da; color:#721c24; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Cancelled</span>
                             <?php else: ?>
-                                <span style="background:#e2e3e5; color:#383d41; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Completed</span>
+                                <?php if($payment_status == 'pending' && isset($b['total_amount']) && $b['total_amount'] > 0): ?>
+                                     <span style="background:#ffc107; color:#856404; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Payment Pending</span>
+                                <?php else: ?>
+                                     <span style="background:#e2e3e5; color:#383d41; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Completed</span>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </div>
                         
@@ -146,15 +151,12 @@ include 'includes/header.php';
                                     </p>
                                 <?php endif; ?>
                              </div>
-                             <?php if($b['status']=='active'): ?>
+                             <?php if($b['status']=='active' && $payment_status == 'paid'): ?>
                                 <div style="display:flex; gap:10px;">
-                                    <!-- Vacate logic removed. Must use Exit Scanner. -->
                                     <a href="parking_navigation.php?booking_id=<?php echo $b['id']; ?>" class="small-btn" style="background:#007bff; color:white; border:none; display:inline-block;">3D Navigation</a>
                                 </div>
                              <?php endif; ?>
                         </div>
-                        
-                        <small style="display:block; margin-top:10px; color:var(--muted); border-top:1px solid #eee; padding-top:5px;"><?php echo htmlspecialchars($b['address']); ?></small>
                         
                         <?php if($b['status']=='active'): ?>
                             <div style="margin-top:15px; background:#fff; padding:10px; border:1px dashed #ccc; border-radius:8px; display:flex; align-items:center; gap:15px;">
@@ -172,6 +174,13 @@ include 'includes/header.php';
                                         <div style="font-size:0.7rem; color:var(--primary);">Scan QR at Entry Gate</div>
                                     <?php endif; ?>
                                 </div>
+                            </div>
+                        <?php elseif($b['status']=='completed' && $payment_status == 'pending' && isset($b['total_amount']) && $b['total_amount'] > 0): ?>
+                             <div style="margin-top:15px; background:#fff3cd; color:#856404; padding:15px; border:1px solid #ffeeba; border-radius:8px; text-align:center;">
+                                <strong>Exit Fee Pending</strong><br>
+                                <span style="font-size:0.9rem;">Total: ₹<?php echo number_format($b['total_amount'], 2); ?></span>
+                                <br>
+                                <a href="payment.php?booking_id=<?php echo $b['id']; ?>" class="btn" style="margin-top:10px; background:#ffc107; color:black; border:none;">Pay Now</a>
                             </div>
                         <?php endif; ?>
 
