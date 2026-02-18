@@ -25,6 +25,15 @@ try {
         throw new Exception('Invalid time range');
     }
 
+    // NEW: Check Daily Limit (Max 10 per day)
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE user_id = ? AND DATE(created_at) = CURDATE()");
+    $stmt->execute([$user_id]);
+    $daily_count = $stmt->fetchColumn();
+
+    if ($daily_count >= 10) {
+        throw new Exception('Daily booking limit reached (Max 10 per day).');
+    }
+
     // Double Check Availability (Concurrency protection)
     $stmt = $pdo->prepare("
         SELECT count(*) FROM bookings 

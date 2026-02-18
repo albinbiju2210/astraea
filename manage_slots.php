@@ -95,9 +95,10 @@ include 'includes/header.php';
             </p>
             <div style="flex:2; min-width:300px;">
                 <h3 style="margin-top:0;">Existing Slots (<?php echo count($slots); ?>)</h3>
-                <div style="max-height:800px; overflow-y:auto; border:1px solid var(--input-border); border-radius:12px;">
+                <!-- Removed max-height/overflow to match bookings page scroll -->
+                <div style="margin-top:10px;">
                     <table style="width:100%; text-align:left; border-collapse: collapse;">
-                        <thead style="position:sticky; top:0; background:var(--bg); z-index:1;">
+                        <thead>
                             <tr style="border-bottom:2px solid var(--input-border);">
                                 <th style="padding:10px;">Lot</th>
                                 <th style="padding:10px;">Level</th>
@@ -122,20 +123,22 @@ include 'includes/header.php';
                                                 <span style="color:#69db7c;">Available</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td style="padding:10px; text-align:right; display:flex; gap:5px; justify-content:flex-end;">
-                                            <form method="post" style="display:inline;">
-                                                <input type="hidden" name="action" value="toggle_maintenance">
-                                                <input type="hidden" name="slot_id" value="<?php echo $s['id']; ?>">
-                                                <input type="hidden" name="current_status" value="<?php echo $s['is_maintenance']; ?>">
-                                                <button class="small-btn btn-warning" title="Maint">
-                                                    <?php echo $s['is_maintenance'] ? 'On' : 'Off'; ?>
-                                                </button>
-                                            </form>
-                                            <form method="post" onsubmit="return confirm('Delete?');" style="display:inline;">
-                                                <input type="hidden" name="action" value="delete_slot">
-                                                <input type="hidden" name="slot_id" value="<?php echo $s['id']; ?>">
-                                                <button class="small-btn btn-danger" title="Delete">x</button>
-                                            </form>
+                                        <td style="padding:10px; text-align:right;">
+                                            <div style="display:flex; gap:5px; justify-content:flex-end;">
+                                                <form method="post" style="display:inline;">
+                                                    <input type="hidden" name="action" value="toggle_maintenance">
+                                                    <input type="hidden" name="slot_id" value="<?php echo $s['id']; ?>">
+                                                    <input type="hidden" name="current_status" value="<?php echo $s['is_maintenance']; ?>">
+                                                    <button class="small-btn btn-warning" title="Maint">
+                                                        <?php echo $s['is_maintenance'] ? 'On' : 'Off'; ?>
+                                                    </button>
+                                                </form>
+                                                <form method="post" onsubmit="return confirm('Delete?');" style="display:inline;">
+                                                    <input type="hidden" name="action" value="delete_slot">
+                                                    <input type="hidden" name="slot_id" value="<?php echo $s['id']; ?>">
+                                                    <button class="small-btn btn-danger" title="Delete">x</button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

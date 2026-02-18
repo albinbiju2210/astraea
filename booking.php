@@ -16,6 +16,11 @@ $success = '';
 $error = '';
 $step = 1;
 
+// Fetch User's default vehicle number
+$u_stmt = $pdo->prepare("SELECT vehicle_number FROM users WHERE id = ?");
+$u_stmt->execute([$user_id]);
+$default_vehicle = $u_stmt->fetchColumn() ?: '';
+
 // Temp fix for slot IDs (if re-seeded)
 // We need to ensure we don't carry over old IDs if the user had a stale session/link
 if (isset($_POST['slot_id'])) {
@@ -46,8 +51,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $lot_id = $_POST['lot_id'];
     $s_time = $_POST['start_time'];
     $e_time = $_POST['end_time'];
+    $v_num = trim($_POST['vehicle_number'] ?? ''); // Capture Vehicle Number
 
-    // Double Check Availability (Concurrency)
+    if (empty($v_num)) {
+        $error = "Please provide a vehicle number.";
+    } else {
+
+    // NEW: Check Daily Limit (Max 10 per day)
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE user_id = ? AND DATE(created_at) = CURDATE()");
+    $stmt->execute([$user_id]);
+    $daily_count = $stmt->fetchColumn();
+
+    if ($daily_count >= 10) {
+        $error = "Daily booking limit reached (Max 10 per day).";
+    } else {
+        // Double Check Availability (Concurrency)
     // Overlap: (StartA <= EndB) and (EndA >= StartB)
     $stmt = $pdo->prepare("
         SELECT count(*) FROM bookings 
@@ -69,8 +87,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 // Generate unique access code
                 $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
                 
-                $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, start_time, end_time, status, access_code) VALUES (?, ?, ?, ?, 'active', ?)");
-                $stmt->execute([$user_id, $slot_id, $s_time, $e_time, $access_code]);
+                $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, status, access_code) VALUES (?, ?, ?, ?, ?, 'active', ?)");
+                $stmt->execute([$user_id, $slot_id, $v_num, $s_time, $e_time, $access_code]);
+                
+                // Optional: Update user's profile if empty
+                // if (empty($default_vehicle)) { ... }
                 
                 // Update real-time status ONLY if the booking starts NOW (or very close)
                 // For simplicity, we can set is_occupied if start_time is within 15 mins.
@@ -93,6 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } else {
         $error = "Slot was just booked by someone else.";
     }
+    } // close limit check
+    } // close empty vehicle check
 }
 
 // Fetch Lots
@@ -172,11 +195,18 @@ include 'includes/header.php';
         <!-- STEP 2: SELECT TIME -->
         <?php elseif ($step === 2): ?>
             <h3><?php echo htmlspecialchars($lot_info['name']); ?></h3>
-            <p style="color:var(--muted); margin-bottom:20px;">When do you want to park?</p>
+            <p style="color:var(--muted); margin-bottom:20px;">Enter vehicle details and time.</p>
             
             <form action="booking.php" method="get" style="background:var(--bg); padding:20px; border-radius:var(--radius);">
                 <input type="hidden" name="lot_id" value="<?php echo $selected_lot_id; ?>">
                 
+                <div style="margin-bottom:15px;">
+                    <label>Vehicle Number</label>
+                    <input class="input" type="text" name="vehicle_number" placeholder="e.g. KL-07-AB-1234" required 
+                           value="<?php echo htmlspecialchars($default_vehicle); ?>">
+                    <small style="color:var(--muted);">Enter the vehicle plate number you will arrive in.</small>
+                </div>
+
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:15px;">
                     <div>
                         <label>Start Time</label>
@@ -190,6 +220,13 @@ include 'includes/header.php';
                                min="<?php echo date('Y-m-d\TH:i'); ?>" 
                                value="<?php echo date('Y-m-d\TH:i', strtotime('+1 hour 10 minutes')); ?>">
                     </div>
+                </div>
+
+                <div style="margin-bottom:15px;">
+                    <label>Vehicle Number</label>
+                    <input class="input" type="text" name="vehicle_number" placeholder="e.g. KL-07-AB-1234" required 
+                           value="<?php echo htmlspecialchars($default_vehicle); ?>">
+                    <small style="color:var(--muted);">Enter the vehicle plate number you will arrive in.</small>
                 </div>
                 
                 <div class="flex-between">
@@ -317,7 +354,9 @@ include 'includes/header.php';
                                         <input type="hidden" name="slot_id" value="<?php echo $s['id']; ?>">
                                         <input type="hidden" name="lot_id" value="<?php echo $selected_lot_id; ?>">
                                         <input type="hidden" name="start_time" value="<?php echo htmlspecialchars($start_time); ?>">
+                                        <input type="hidden" name="start_time" value="<?php echo htmlspecialchars($start_time); ?>">
                                         <input type="hidden" name="end_time" value="<?php echo htmlspecialchars($end_time); ?>">
+                                        <input type="hidden" name="vehicle_number" value="<?php echo htmlspecialchars($_GET['vehicle_number'] ?? ''); ?>">
                                         
                                         <button type="submit" style="
                                             width:100%; height:80px; 

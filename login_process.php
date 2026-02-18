@@ -19,11 +19,28 @@ if ($vehicle_number && $phone) {
         exit;
     }
 
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE vehicle_number = ? AND phone = ?");
-    $stmt->execute([$vehicle_number, $phone]);
+    // 1. Find User by Phone first
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ? LIMIT 1");
+    $stmt->execute([$phone]);
     $user = $stmt->fetch();
 
+    $login_success = false;
+
     if ($user) {
+        // 2. Check if Vehicle Number matches Profile OR Bookings
+        if (strcasecmp($user['vehicle_number'], $vehicle_number) === 0) {
+            $login_success = true;
+        } else {
+            // Check past bookings for this vehicle
+            $b_stmt = $pdo->prepare("SELECT id FROM bookings WHERE user_id = ? AND vehicle_number = ? LIMIT 1");
+            $b_stmt->execute([$user['id'], $vehicle_number]);
+            if ($b_stmt->fetch()) {
+                $login_success = true;
+            }
+        }
+    }
+
+    if ($login_success) {
         session_regenerate_id(true);
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_name'] = $user['name'];

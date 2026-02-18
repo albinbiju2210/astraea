@@ -38,6 +38,7 @@ try {
     try { $pdo->exec("ALTER TABLE bookings ADD COLUMN penalty DECIMAL(10,2) DEFAULT 0.00"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE bookings ADD COLUMN last_penalty_check DATETIME NULL"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE bookings ADD COLUMN is_overdue_notified TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+    try { $pdo->exec("ALTER TABLE bookings ADD COLUMN vehicle_number VARCHAR(20) NULL AFTER user_id"); } catch (Exception $e) {}
 
 } catch (Exception $e) {
     // Suppress schema errors to avoid breaking the site if partial state

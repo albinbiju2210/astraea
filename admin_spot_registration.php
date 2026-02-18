@@ -13,6 +13,38 @@ require 'db.php';
 $msg = '';
 $error = '';
 
+// AJAX Handler for Vehicle Check
+if (isset($_GET['action']) && $_GET['action'] === 'check_vehicle') {
+    header('Content-Type: application/json');
+    $v_num = trim($_GET['vehicle_number'] ?? '');
+    
+    // Look for user by vehicle number (New Logic forces us to find the main owner of the vehicle)
+    // Or just find ANY user who has booked with this vehicle before? 
+    // Let's stick to the main profile vehicle_number for now as per "if phone doesn't exist with this vehicle"
+    
+    $stmt = $pdo->prepare("SELECT name, phone FROM users WHERE vehicle_number = ? LIMIT 1");
+    $stmt->execute([$v_num]);
+    $user = $stmt->fetch();
+
+    if ($user) {
+        echo json_encode(['found' => true, 'name' => $user['name'], 'phone' => $user['phone']]);
+    } else {
+        // Also check recent bookings to see if this vehicle was used by someone else? 
+        // For simplicity, let's just check the main User profile first. 
+        // If we want to be smarter, we could check the last booking with this vehicle.
+        $stmt2 = $pdo->prepare("SELECT u.name, u.phone FROM bookings b JOIN users u ON b.user_id = u.id WHERE b.vehicle_number = ? ORDER BY b.created_at DESC LIMIT 1");
+        $stmt2->execute([$v_num]);
+        $last_user = $stmt2->fetch();
+        
+        if ($last_user) {
+             echo json_encode(['found' => true, 'name' => $last_user['name'], 'phone' => $last_user['phone']]);
+        } else {
+             echo json_encode(['found' => false]);
+        }
+    }
+    exit;
+}
+
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $vehicle_number = trim($_POST['vehicle_number'] ?? '');
@@ -27,26 +59,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();
 
             // 1. Find or Create User
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ? OR vehicle_number = ?");
-            $stmt->execute([$phone, $vehicle_number]);
+            // PRIORITIZE finding by PHONE first (User Identifier)
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ? LIMIT 1");
+            $stmt->execute([$phone]);
             $user = $stmt->fetch();
+
+            if (!$user) {
+                // Determine if we need to check vehicle (legacy check)
+                $stmt = $pdo->prepare("SELECT * FROM users WHERE vehicle_number = ? LIMIT 1");
+                $stmt->execute([$vehicle_number]);
+                $user = $stmt->fetch();
+            }
 
             if (!$user) {
                 // Create new user (Guest)
                 $name = "Guest " . substr($phone, -4);
                 $email = $phone . "@guest.astraea.com"; // Dummy email
-                $password_hash = password_hash($phone, PASSWORD_DEFAULT); // Default password is phone number
+                $password_hash = password_hash($phone, PASSWORD_DEFAULT); 
                 
                 $stmt = $pdo->prepare("INSERT INTO users (name, email, phone, vehicle_number, password_hash) VALUES (?, ?, ?, ?, ?)");
                 $stmt->execute([$name, $email, $phone, $vehicle_number, $password_hash]);
                 $user_id = $pdo->lastInsertId();
             } else {
                 $user_id = $user['id'];
-                // Update vehicle number if missing or changed, but prioritize existing
-                if (empty($user['vehicle_number'])) {
-                    $stmt = $pdo->prepare("UPDATE users SET vehicle_number = ? WHERE id = ?");
-                    $stmt->execute([$vehicle_number, $user_id]);
-                }
+                // We DO NOT overwrite the user's main vehicle_number here.
+                // We simply use their ID for the new booking.
             }
 
             // 2. Find Available Slot in Lot
@@ -74,8 +111,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Generate Access Code here so we can show it
             $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
 
-            $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, start_time, end_time, entry_time, status, access_code) VALUES (?, ?, ?, ?, ?, 'active', ?)");
-            $stmt->execute([$user_id, $slot['id'], $start_time, $end_time, $entry_time, $access_code]);
+            // STORE vehicle_number in booking as well (for multi-vehicle support)
+            $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, entry_time, status, access_code) VALUES (?, ?, ?, ?, ?, ?, 'active', ?)");
+            $stmt->execute([$user_id, $slot['id'], $vehicle_number, $start_time, $end_time, $entry_time, $access_code]);
             $booking_id = $pdo->lastInsertId();
 
             // Mark slot locally as occupied (though db.php syncs it)
@@ -83,6 +121,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$slot['id']]);
 
             $pdo->commit();
+
+            // NEW: Fetch Lot Name for Notification
+            $lot_name = "Parking Lot";
+            try {
+                $l_stmt = $pdo->prepare("SELECT name FROM parking_lots WHERE id = ?");
+                $l_stmt->execute([$lot_id]); // Use the selected lot_id
+                $lot_name = $l_stmt->fetchColumn(); 
+            } catch (Exception $e) {}
+
+            // Send Notification
+            $notif_msg = "Slot Allocated! Your slot is <strong>{$slot['floor_level']}-{$slot['slot_number']}</strong> at {$lot_name}. <a href='parking_navigation.php?booking_id={$booking_id}'>Navigate to Slot</a>";
+            $params = [$user_id, $notif_msg];
+            
+            try {
+                $n_stmt = $pdo->prepare("INSERT INTO notifications (user_id, message, type) VALUES (?, ?, 'info')");
+                $n_stmt->execute($params);
+            } catch (Exception $e) { /* Ignore */ }
+
             $msg = "Success! Assigned Slot: <strong>" . htmlspecialchars($slot['floor_level'] . '-' . $slot['slot_number']) . "</strong><br>Access Code: <strong style='font-size:1.2em; color:black; background:#e2e3e5; padding:2px 5px; border-radius:4px;'>" . $access_code . "</strong>";
 
         } catch (Exception $e) {
@@ -180,10 +236,13 @@ if (!isset($_SESSION['admin_lot_id'])) {
                 <input type="text" name="vehicle_number" class="input" placeholder="e.g. KL-07-AB-1234" required autofocus value="<?php echo htmlspecialchars($_POST['vehicle_number'] ?? ''); ?>">
             </div>
 
-            <div class="form-group">
+            <div class="form-group" id="phone-group" style="display:none;">
                 <label>Phone Number</label>
-                <input type="tel" name="phone" class="input" placeholder="e.g. 9876543210" required value="<?php echo htmlspecialchars($_POST['phone'] ?? ''); ?>">
+                <input type="tel" id="phone_input" name="phone" class="input" placeholder="e.g. 9876543210" required 
+                       value="<?php echo htmlspecialchars($_POST['phone'] ?? ''); ?>">
             </div>
+
+            <div id="user-info" style="margin-bottom:15px; display:none; background:rgba(40,167,69,0.1); padding:10px; border-radius:8px; border:1px solid #28a745; color:#28a745; font-size:0.9rem;"></div>
 
             <!-- Duration removed: Auto-calculated on exit -->
             <input type="hidden" name="duration" value="indefinite">
@@ -192,6 +251,53 @@ if (!isset($_SESSION['admin_lot_id'])) {
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const vInput = document.querySelector('input[name="vehicle_number"]');
+    const pGroup = document.getElementById('phone-group');
+    const pInput = document.getElementById('phone_input');
+    const uInfo = document.getElementById('user-info');
+    let timeout = null;
+
+    // Check vehicle function
+    function checkVehicle() {
+        const vNum = vInput.value.trim();
+        if (vNum.length < 3) return; // Too short
+
+        fetch(`admin_spot_registration.php?action=check_vehicle&vehicle_number=${encodeURIComponent(vNum)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.found) {
+                    // Vehicle Exists
+                    pGroup.style.display = 'none'; // Hide phone
+                    pInput.value = data.phone; // Auto-fill
+                    
+                    uInfo.style.display = 'block';
+                    uInfo.innerHTML = `<strong>User Found:</strong> ${data.name} (${data.phone})<br>Proceed to Confirm.`;
+                } else {
+                    // Vehicle Not Found
+                    pGroup.style.display = 'block'; // Show phone
+                    // Clear phone if it was previously auto-filled (simple check: if we are showing it now)
+                    // or just let user type. But to recall, we should probably clear if we just came from a "found" state.
+                    // For now, let's just clear if the user hasn't typed anything yet (heuristic).
+                    
+                    uInfo.style.display = 'none';
+                }
+            })
+            .catch(err => console.error(err));
+    }
+
+    // Debounce input to avoid spamming
+    vInput.addEventListener('input', function() {
+        clearTimeout(timeout);
+        timeout = setTimeout(checkVehicle, 500);
+    });
+
+    // Also check on blur
+    vInput.addEventListener('blur', checkVehicle);
+});
+</script>
 
 </body>
 </html>

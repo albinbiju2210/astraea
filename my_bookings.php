@@ -148,11 +148,7 @@ include 'includes/header.php';
                              </div>
                              <?php if($b['status']=='active'): ?>
                                 <div style="display:flex; gap:10px;">
-                                    <form method="post" onsubmit="return confirm('Ready to leave? This will generate your exit code.');">
-                                        <input type="hidden" name="action" value="vacate">
-                                        <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
-                                        <button class="small-btn" style="background:#dc3545; color:white; border:none; cursor:pointer;">Vacate & Exit</button>
-                                    </form>
+                                    <!-- Vacate logic removed. Must use Exit Scanner. -->
                                     <a href="parking_navigation.php?booking_id=<?php echo $b['id']; ?>" class="small-btn" style="background:#007bff; color:white; border:none; display:inline-block;">3D Navigation</a>
                                 </div>
                              <?php endif; ?>

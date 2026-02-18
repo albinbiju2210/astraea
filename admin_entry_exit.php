@@ -12,23 +12,100 @@ require 'db.php';
 $msg = "";
 $error = "";
 $scan_result = null;
+$show_walkin_form = false;
+$walkin_vehicle = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $code = strtoupper(trim($_POST['access_code']));
-    
-    if (empty($code)) {
-        $error = "Please enter a code.";
+    $input = strtoupper(trim($_POST['access_code'])); // Can be Code OR Vehicle Number
+    $action = $_POST['action'] ?? 'scan';
+
+    // HANDLE WALK-IN ENTRY
+    if ($action === 'walk_in_entry') {
+        $phone = trim($_POST['phone'] ?? '');
+        $vehicle_number = $input; // Re-use input
+        $lot_id = $_SESSION['admin_lot_id'] ?? null; // Default to admin's lot
+
+        if (!$lot_id) {
+             // Fallback for Super Admin without specific lot? 
+             // Ideally they should select a lot, but for scanner we assume context.
+             // Let's grab the first lot as fallback or error out.
+             $lot_id = $pdo->query("SELECT id FROM parking_lots LIMIT 1")->fetchColumn();
+        }
+
+        try {
+            $pdo->beginTransaction();
+
+            // 1. Find or Create User (Same logic as Spot Register)
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE phone = ? LIMIT 1");
+            $stmt->execute([$phone]);
+            $user = $stmt->fetch();
+
+            if (!$user) {
+                // Create new user (Guest)
+                $name = "Guest " . substr($phone, -4);
+                $email = $phone . "@guest.astraea.com"; 
+                $password_hash = password_hash($phone, PASSWORD_DEFAULT); 
+                
+                $stmt = $pdo->prepare("INSERT INTO users (name, email, phone, vehicle_number, password_hash) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([$name, $email, $phone, $vehicle_number, $password_hash]);
+                $user_id = $pdo->lastInsertId();
+            } else {
+                $user_id = $user['id'];
+            }
+
+            // 2. Find Available Slot
+            $stmt = $pdo->prepare("SELECT id, slot_number, floor_level FROM parking_slots WHERE lot_id = ? AND is_occupied = 0 AND is_maintenance = 0 LIMIT 1");
+            $stmt->execute([$lot_id]);
+            $slot = $stmt->fetch();
+
+            if (!$slot) {
+                throw new Exception("No slots available.");
+            }
+
+            // 3. Create Booking & Mark Entry
+            $start_time = date('Y-m-d H:i:s');
+            // End time +5 years for indefinite
+            $end_time = date('Y-m-d H:i:s', strtotime("+5 years")); 
+            $entry_time = date('Y-m-d H:i:s'); // Marked IMMEDIATELY
+            $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
+
+            $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, entry_time, status, access_code) VALUES (?, ?, ?, ?, ?, ?, 'active', ?)");
+            $stmt->execute([$user_id, $slot['id'], $vehicle_number, $start_time, $end_time, $entry_time, $access_code]);
+            $booking_id = $pdo->lastInsertId();
+
+            // Mark Occupied
+            $pdo->prepare("UPDATE parking_slots SET is_occupied = 1 WHERE id = ?")->execute([$slot['id']]);
+
+            $pdo->commit();
+
+            $scan_result = [
+                'type' => 'entry',
+                'title' => 'Walk-in Registered',
+                'user' => $name ?? $user['name'],
+                'slot' => $slot['floor_level'] . '-' . $slot['slot_number'],
+                'time' => date('H:i')
+            ];
+            $msg = "Walk-in Successful! Slot Assigned: " . $slot['slot_number'];
+
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error = "Walk-in Error: " . $e->getMessage();
+        }
+
+    } elseif (empty($input)) {
+        $error = "Please enter a code or vehicle number.";
     } else {
-        // Find booking
+        // Find booking by Code OR Active Booking by Vehicle Number
         $stmt = $pdo->prepare("
             SELECT b.*, u.name as user_name, l.name as lot_name, s.slot_number, s.lot_id 
             FROM bookings b
             JOIN users u ON b.user_id = u.id
             JOIN parking_slots s ON b.slot_id = s.id
             JOIN parking_lots l ON s.lot_id = l.id
-            WHERE b.access_code = ? AND b.status = 'active'
+            WHERE (b.access_code = ? OR (b.vehicle_number = ? AND b.status = 'active'))
+            LIMIT 1
         ");
-        $stmt->execute([$code]);
+        $stmt->execute([$input, $input]);
         $booking = $stmt->fetch();
         
         if ($booking) {
@@ -93,13 +170,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Check if it was already completed
             $check = $pdo->prepare("SELECT status FROM bookings WHERE access_code = ?");
-            $check->execute([$code]);
+            $check->execute([$input]);
             $status = $check->fetchColumn();
             
             if ($status === 'completed' || $status === 'cancelled') {
-                $error = "Invalid Code: Booking is already $status.";
+                $error = "Valid code, but booking is $status.";
             } else {
-                $error = "Code not found or invalid.";
+                // NO BOOKING FOUND -> POTENTIAL WALK-IN?
+                // If input looks like a vehicle number (legacy regex or just length), suggest walk-in
+                if (strlen($input) > 4) {
+                     // $error = "Booking not found. Register Walk-in?"; // REMOVED
+                     $show_walkin_form = true; // Use this flag in HTML
+                     $walkin_vehicle = $input;
+                } else {
+                     $error = "Code/Vehicle not found.";
+                }
             }
         }
     }
@@ -150,12 +235,28 @@ include 'includes/header.php';
         <?php endif; ?>
 
         <form method="post" id="scanner-form">
-            <input type="text" name="access_code" id="access_code" placeholder="ENTER CODE (e.g. X7K9P2)" 
+            <input type="text" name="access_code" id="access_code" placeholder="ENTER VEHICLE NO (e.g. KL-07...)" 
                    style="font-size:1.5rem; text-align:center; letter-spacing:3px; padding:15px; width:100%; border:2px solid var(--primary); border-radius:8px; text-transform:uppercase;" 
                    autofocus autocomplete="off">
             
             <button class="btn" style="width:100%; margin-top:15px; padding:12px;">Validate Access</button>
         </form>
+
+        <?php if ($show_walkin_form): ?>
+            <div style="margin-top:20px; text-align:left; background:rgb(255, 248, 225); padding:15px; border-radius:8px; border:1px solid #fecaca; animation: fadeIn 0.3s;">
+                <p style="font-size:1rem; margin-bottom:10px; color:#b91c1c;">Vehicle <strong><?php echo htmlspecialchars($walkin_vehicle); ?></strong> not found.</p>
+                
+                <form method="post">
+                    <input type="hidden" name="action" value="walk_in_entry">
+                    <input type="hidden" name="access_code" value="<?php echo htmlspecialchars($walkin_vehicle); ?>"> <!-- Pass as Code/Vehicle -->
+                    
+                    <label style="font-size:0.85rem; font-weight:bold;">Enter Driver Phone to Register:</label>
+                    <input type="tel" name="phone" placeholder="Phone Number" required style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:4px; font-size:1.1rem;">
+                    
+                    <button class="btn" style="background:#dc2626; width:100%;">Assign Slot & Enter &rarr;</button>
+                </form>
+            </div>
+        <?php endif; ?>
         
         <script>
             // Auto-submit if length is 6 (optional QoL)
@@ -166,9 +267,9 @@ include 'includes/header.php';
                     // Optional: Un-comment to auto submit
                 }
             });
-            // Keep focus for continuous scanning
+            // Keep focus for continuous scanning (Only on load)
             input.focus();
-            input.addEventListener('blur', () => setTimeout(() => input.focus(), 100));
+            // input.addEventListener('blur', () => setTimeout(() => input.focus(), 100)); // REMOVED to allow phone input
         </script>
         
         <div style="margin-top:20px;">
