@@ -64,8 +64,19 @@ try {
         $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
     }
 
-    $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, start_time, end_time, status, access_code) VALUES (?, ?, ?, ?, 'active', ?)");
-    $stmt->execute([$user_id, $slot_id, $start_time, $end_time, $access_code]);
+    // Calculate Duration in Hours
+    $start_ts = strtotime($start_time);
+    $end_ts = strtotime($end_time);
+    $duration_hours = ceil(($end_ts - $start_ts) / 3600);
+    
+    // Upfront Payment: 100 per hour
+    $total_amount = $duration_hours * 100.00;
+    
+    // Refundable Deposit: 2000
+    $refundable_amount = 2000.00;
+
+    $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, start_time, end_time, status, payment_status, total_amount, refundable_amount, access_code) VALUES (?, ?, ?, ?, 'pending', 'pending', ?, ?, ?)");
+    $stmt->execute([$user_id, $slot_id, $start_time, $end_time, $total_amount, $refundable_amount, $access_code]);
     
     // NOTE: We do NOT mark is_occupied = 1 here anymore. 
     // Occupancy is triggered by the Entry Scan at the gate.

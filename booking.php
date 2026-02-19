@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     // Overlap: (StartA <= EndB) and (EndA >= StartB)
     $stmt = $pdo->prepare("
         SELECT count(*) FROM bookings 
-        WHERE slot_id = ? AND status = 'active'
+        WHERE slot_id = ? AND status IN ('active', 'pending')
         AND (start_time < ? AND end_time > ?)
     ");
     $stmt->execute([$slot_id, $e_time, $s_time]);
@@ -87,20 +87,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 // Generate unique access code
                 $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
                 
-                $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, status, payment_status, access_code) VALUES (?, ?, ?, ?, ?, 'active', 'pending', ?)");
-                $stmt->execute([$user_id, $slot_id, $v_num, $s_time, $e_time, $access_code]);
+                // Calculate Duration & Prices
+                $start_ts = strtotime($s_time);
+                $end_ts = strtotime($e_time);
+                $duration_hours = ceil(($end_ts - $start_ts) / 3600);
+                
+                $total_amount = $duration_hours * 100.00;
+                $refundable_amount = 2000.00;
+                
+                $stmt = $pdo->prepare("INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, status, payment_status, total_amount, refundable_amount, access_code) VALUES (?, ?, ?, ?, ?, 'pending', 'pending', ?, ?, ?)");
+                $stmt->execute([$user_id, $slot_id, $v_num, $s_time, $e_time, $total_amount, $refundable_amount, $access_code]);
                 $new_booking_id = $pdo->lastInsertId();
                 
                 // Optional: Update user's profile if empty
                 // if (empty($default_vehicle)) { ... }
                 
                 // Update real-time status ONLY if the booking starts NOW (or very close)
-                if (strtotime($s_time) <= time() && strtotime($e_time) > time()) {
-                    $pdo->prepare("UPDATE parking_slots SET is_occupied = 1 WHERE id = ?")->execute([$slot_id]);
-                }
-
+                // BUT since it's pending payment, maybe we DON'T mark it occupied yet?
+                // Actually, we should reserve it physically or logically.
+                // Logical reservation is handled by the 'status IN (active, pending)' check.
+                // Physical 'is_occupied' flag is for the sensor/display. 
+                // Let's NOT set is_occupied until PAID or ENTRY?
+                // Plan: Only mark is_occupied on ENTRY scan. So removing the update here is correct (consistent with process_booking.php change).
+                
                 $pdo->commit();
-                header("Location: my_bookings.php?new_booking=1");
+                
+                header("Location: payment.php?booking_id=$new_booking_id");
                 exit;
             } catch (Exception $e) {
                 $pdo->rollBack();
@@ -201,7 +213,8 @@ include 'includes/header.php';
                 <div style="margin-bottom:15px;">
                     <label>Vehicle Number</label>
                     <input class="input" type="text" name="vehicle_number" placeholder="e.g. KL-07-AB-1234" required 
-                           value="<?php echo htmlspecialchars($default_vehicle); ?>">
+                           value="<?php echo htmlspecialchars($default_vehicle); ?>" 
+                           oninput="this.value = this.value.toUpperCase()" style="text-transform:uppercase;">
                     <small style="color:var(--muted);">Enter the vehicle plate number you will arrive in.</small>
                 </div>
 
@@ -220,12 +233,7 @@ include 'includes/header.php';
                     </div>
                 </div>
 
-                <div style="margin-bottom:15px;">
-                    <label>Vehicle Number</label>
-                    <input class="input" type="text" name="vehicle_number" placeholder="e.g. KL-07-AB-1234" required 
-                           value="<?php echo htmlspecialchars($default_vehicle); ?>">
-                    <small style="color:var(--muted);">Enter the vehicle plate number you will arrive in.</small>
-                </div>
+
                 
                 <div class="flex-between">
                     <a href="booking.php" class="small-btn" style="background:#eee; color:#333;">&larr; Back</a>

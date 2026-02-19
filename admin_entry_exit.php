@@ -112,7 +112,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Check Admin Permissions
             if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] != $booking['lot_id']) {
                 $error = "Unauthorized: This booking belongs to " . htmlspecialchars($booking['lot_name']);
-                $booking = null; // Deny access
+                $booking = null; 
+            }
+            
+            // Check Status
+            if ($booking && $booking['status'] === 'pending') {
+                $error = "Booking is Pending Payment. Cannot Authenticate.";
+                $booking = null;
             }
         }
         
@@ -144,13 +150,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $duration_mins = ceil(($exit - $entry) / 60); 
                 $duration_hours = ceil($duration_mins / 60);
 
-                // Pricing Logic
-                if ($duration_mins <= 5) {
-                    $total_amount = 20.00;
-                } elseif ($duration_hours <= 6) {
-                    $total_amount = $duration_hours * 40.00;
+                $rate_desc = "Standard";
+
+                if (($booking['refundable_amount'] ?? 0) > 0) {
+                    $total_amount = $booking['total_amount'];
+                    $rate_desc = "Pre-paid Online";
                 } else {
-                    $total_amount = $duration_hours * 100.00;
+                    // Spot Booking / Walk-in Logic
+                    if ($duration_mins <= 5) {
+                        $total_amount = 20.00;
+                        $rate_desc = "Minimum Fare (<= 5 mins)";
+                    } elseif ($duration_hours <= 6) {
+                        $total_amount = $duration_hours * 40.00;
+                        $rate_desc = "Standard Rate (₹40/hr)";
+                    } else {
+                        $total_amount = $duration_hours * 100.00;
+                        $rate_desc = "Long Stay Rate (₹100/hr)";
+                    }
+                }
+
+                // REFUND LOGIC (Pre-booking)
+                $refund_msg = "";
+                if ($booking['refundable_amount'] > 0) {
+                    // Check Overstay
+                    // Allowed: End Time + 10 mins grace
+                    $allowed_exit_time = strtotime($booking['end_time']) + (10 * 60);
+                    
+                    if ($exit <= $allowed_exit_time) {
+                        // On Time: Full Refund
+                        $refund_due = $booking['refundable_amount'];
+                        $deduction = 0;
+                    } else {
+                        // Late: Deduct from Deposit
+                        $overstay_seconds = $exit - $allowed_exit_time;
+                        $overstay_hours = ceil($overstay_seconds / 3600);
+                        $deduction = $overstay_hours * 100.00;
+                        
+                        $refund_due = max(0, $booking['refundable_amount'] - $deduction);
+                    }
+
+                    // Update Refund Status AND Amount
+                    $r_status = ($refund_due > 0) ? 'pending' : 'forfeited';
+                    $pdo->prepare("UPDATE bookings SET refund_status = ?, refundable_amount = ? WHERE id = ?")->execute([$r_status, $refund_due, $booking['id']]);
+                    
+                    $refund_msg = "<div class='alert alert-warning'>Refund Due: <strong>₹" . number_format($refund_due, 2) . "</strong>" . 
+                                  ($deduction > 0 ? " (Deducted ₹$deduction for late exit)" : "") . "</div>";
                 }
 
                 // MARK EXIT
@@ -165,8 +209,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'type' => 'exit',
                     'title' => 'Access Granted: EXIT',
                     'user' => $booking['user_name'],
-                    'total_time' => $duration_mins . " mins",
-                    'amount' => $total_amount, // Pass amount to view
+                    'vehicle' => $booking['vehicle_number'],
+                    'total_time' => $duration_hours . " hrs (" . $duration_mins . " mins)",
+                    'amount' => $total_amount,
+                    'rate_desc' => $rate_desc,
                     'slot' => "Freed"
                 ];
                 $msg = "Vehicle Exit Recorded. Payment Required: " . $total_amount;
@@ -275,8 +321,26 @@ include 'includes/header.php';
                      <div style="margin-top:5px;">Duration: <strong><?php echo $scan_result['total_time']; ?></strong></div>
                 <?php endif; ?>
                 <?php if(isset($scan_result['amount'])): ?>
-                     <div style="margin-top:10px; font-size:1.5rem; color:#dc3545; background:rgba(255,255,255,0.8); padding:5px 10px; border-radius:5px; font-weight:bold;">
-                        Pay: <?php echo number_format($scan_result['amount'], 2); ?>
+                     <div style="margin-top:15px; background:rgba(255,255,255,0.9); padding:15px; border-radius:8px; text-align:left; font-size:0.95rem; border:1px dashed #ccc;">
+                        <h4 style="margin:0 0 10px 0; border-bottom:1px solid #ddd; padding-bottom:5px;">INVOICE</h4>
+                        
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                            <span>Vehicle:</span>
+                            <strong><?php echo htmlspecialchars($scan_result['vehicle'] ?? 'N/A'); ?></strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                            <span>Duration:</span>
+                            <span><?php echo $scan_result['total_time']; ?></span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                            <span>Rate Applied:</span>
+                            <span><?php echo htmlspecialchars($scan_result['rate_desc'] ?? 'Standard'); ?></span>
+                        </div>
+                        
+                        <div style="display:flex; justify-content:space-between; margin-top:10px; padding-top:10px; border-top:2px solid #333; font-size:1.2rem; font-weight:bold; color:#dc3545;">
+                            <span>TOTAL DUE:</span>
+                            <span>₹<?php echo number_format($scan_result['amount'], 2); ?></span>
+                        </div>
                      </div>
                 <?php endif; ?>
             </div>
@@ -298,7 +362,7 @@ include 'includes/header.php';
         <form method="post" id="scanner-form">
             <input type="text" name="access_code" id="access_code" placeholder="ENTER VEHICLE NO (e.g. KL-07...)" 
                    style="font-size:1.5rem; text-align:center; letter-spacing:3px; padding:15px; width:100%; border:2px solid var(--primary); border-radius:8px; text-transform:uppercase;" 
-                   autofocus autocomplete="off">
+                   autofocus autocomplete="off" oninput="this.value = this.value.toUpperCase()">
             
             <button class="btn" style="width:100%; margin-top:15px; padding:12px;">Validate Access</button>
         </form>

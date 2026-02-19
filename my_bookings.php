@@ -175,6 +175,14 @@ include 'includes/header.php';
                                     <?php endif; ?>
                                 </div>
                             </div>
+                        <?php elseif($b['status']=='pending' && $payment_status == 'pending'): ?>
+                             <div style="margin-top:15px; background:#fff3cd; color:#856404; padding:15px; border:1px solid #ffeeba; border-radius:8px; text-align:center;">
+                                <strong>Pre-booking Payment Pending</strong><br>
+                                <?php $payable = ($b['total_amount'] ?? 0) + ($b['refundable_amount'] ?? 0); ?>
+                                <span style="font-size:0.9rem;">Total Payable: ₹<?php echo number_format($payable, 2); ?></span>
+                                <br>
+                                <a href="payment.php?booking_id=<?php echo $b['id']; ?>" class="btn" style="margin-top:10px; background:#ffc107; color:black; border:none; width:100%;">Pay & Confirm</a>
+                            </div>
                         <?php elseif($b['status']=='completed' && $payment_status == 'pending' && isset($b['total_amount']) && $b['total_amount'] > 0): ?>
                              <div style="margin-top:15px; background:#fff3cd; color:#856404; padding:15px; border:1px solid #ffeeba; border-radius:8px; text-align:center;">
                                 <strong>Exit Fee Pending</strong><br>

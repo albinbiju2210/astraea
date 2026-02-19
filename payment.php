@@ -19,7 +19,7 @@ if (!$booking_id) {
 
 // Fetch Booking Details
 $stmt = $pdo->prepare("
-    SELECT b.*, l.name as lot_name, s.slot_number, s.floor_level 
+    SELECT b.*, l.name as lot_name, s.slot_number, s.floor_level, b.refundable_amount 
     FROM bookings b
     JOIN parking_slots s ON b.slot_id = s.id
     JOIN parking_lots l ON s.lot_id = l.id
@@ -45,7 +45,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Update Booking to Paid
     // We do NOT set status='active' because if it was 'completed' (exit), it should stay completed.
+    // Update Booking to Paid & Active
+    // Only update status to 'active' if it is currently 'pending'. 
+    // If it's already 'active' or 'completed', leave it alone.
+    // 1. Mark as Paid
     $stmt = $pdo->prepare("UPDATE bookings SET payment_status = 'paid' WHERE id = ?");
+    $stmt->execute([$booking_id]);
+    
+    // 2. Activate Booking (if it was pending)
+    $stmt = $pdo->prepare("UPDATE bookings SET status = 'active' WHERE id = ? AND status = 'pending'");
     $stmt->execute([$booking_id]);
     
     // Redirect to Success/My Bookings
@@ -164,21 +172,101 @@ include 'includes/header.php';
 
         <div style="padding:30px;">
             
-            <!-- Amount Display -->
+            <!-- Invoice Section -->
+            <div style="background:#f8f9fa; border:1px solid #e9ecef; border-radius:12px; padding:20px; margin-bottom:25px; font-family:'Courier New', monospace;">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px dashed #ccc; padding-bottom:15px; margin-bottom:15px;">
+                    <h3 style="margin:0; color:#333;">INVOICE</h3>
+                    <div style="text-align:right; font-size:0.8rem; color:#666;">
+                        #<?php echo str_pad($booking['id'], 6, '0', STR_PAD_LEFT); ?><br>
+                        <?php echo date('d M Y'); ?>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:15px; font-size:0.9rem;">
+                    <strong>Vehicle:</strong> <?php echo htmlspecialchars($booking['vehicle_number']); ?><br>
+                    <strong>Slot:</strong> <?php echo htmlspecialchars($booking['slot_number']); ?> (<?php echo htmlspecialchars($booking['lot_name']); ?>)<br>
+                    <strong>Time:</strong> <?php echo date('H:i', strtotime($booking['start_time'])); ?> - <?php echo date('H:i', strtotime($booking['end_time'])); ?>
+                    
+                    <?php 
+                        $start = strtotime($booking['start_time']);
+                        $end = strtotime($booking['end_time']);
+                        $duration = ceil(($end - $start) / 3600);
+                    ?>
+                    (<?php echo $duration; ?> Hours)
+                </div>
+
+                <table style="width:100%; font-size:0.9rem; border-collapse:collapse;">
+                    <tr style="border-bottom:1px solid #ddd;">
+                        <th style="text-align:left; padding:8px 0;">Description</th>
+                        <th style="text-align:right; padding:8px 0;">Amount</th>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 0;">
+                            <?php if (($booking['refundable_amount'] ?? 0) > 0): ?>
+                                Pre-paid Parking Fee (<?php echo $duration; ?>h x ₹100)
+                            <?php else: ?>
+                                Spot Parking Fee (<?php echo $duration; ?> Hours)
+                            <?php endif; ?>
+                        </td>
+                        <td style="text-align:right;">₹<?php echo number_format($booking['total_amount'], 2); ?></td>
+                    </tr>
+                    <?php if (($booking['refundable_amount'] ?? 0) > 0): ?>
+                    <tr>
+                        <td style="padding:8px 0;">Refundable Deposit <span style="font-size:0.7em; background:#e7f1ff; color:#0d6efd; padding:2px 4px; border-radius:3px; vertical-align:middle;">REFUNDABLE</span></td>
+                        <td style="text-align:right;">₹<?php echo number_format(($booking['refundable_amount']??0), 2); ?></td>
+                    </tr>
+                    <?php endif; ?>
+                    <?php if (($booking['penalty'] ?? 0) > 0): ?>
+                    <tr>
+                        <td style="padding:8px 0; color:#dc3545;">Penalty</td>
+                        <td style="text-align:right; color:#dc3545;">₹<?php echo number_format($booking['penalty'], 2); ?></td>
+                    </tr>
+                    <?php endif; ?>
+                </table>
+                
+                <div style="margin-top:15px; padding-top:15px; border-top:2px solid #333; display:flex; justify-content:space-between; align-items:center;">
+                    <strong style="font-size:1.1rem;">TOTAL</strong>
+                    <?php 
+                        // Recalculate for display consistency
+                        $disp_total = ($booking['total_amount']??0) + ($booking['refundable_amount']??0) + ($booking['penalty']??0);
+                    ?>
+                    <strong style="font-size:1.3rem;">₹<?php echo number_format($disp_total, 2); ?></strong>
+                </div>
+
+                <?php if ($booking['refundable_amount'] > 0): ?>
+                    <div style="margin-top:20px; font-size:0.75rem; color:#555; background:#fff; padding:10px; border:1px solid #eee; border-radius:6px;">
+                        <strong>ℹ️ Refund Policy:</strong><br>
+                        The deposit of <strong>₹<?php echo number_format($booking['refundable_amount']); ?></strong> will be fully refunded if you exit the parking lot within <strong>10 minutes</strong> of your scheduled end time (<?php echo date('H:i', $end); ?>).<br>
+                        Late exits will incur a penalty deducted from this deposit.
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Amount Display (Simplified) -->
             <div style="text-align:center; margin-bottom:30px;">
                 <div style="font-size:0.9rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Total Payable Amount</div>
                 <?php 
                     $base_amount = $booking['total_amount'] ?? 0;
                     $penalty = $booking['penalty'] ?? 0;
-                    $total_amount = $base_amount + $penalty;
+                    $refundable = $booking['refundable_amount'] ?? 0;
+                    $total_amount = $base_amount + $penalty + $refundable;
                     
                     if ($total_amount > 0) {
                         echo '<div style="font-weight:800; font-size:2.5rem; color:#2c3e50; margin-top:5px;">₹' . number_format($total_amount, 2) . '</div>';
                         
-                        if ($penalty > 0) {
-                            echo '<div style="color:#dc3545; font-size:0.9rem; margin-top:5px;">
-                                    (Base: ₹' . number_format($base_amount, 2) . ' + <span style="font-weight:bold;">Penalty: ₹' . number_format($penalty, 2) . '</span>)
-                                  </div>';
+                        if ($penalty > 0 || $refundable > 0) {
+                            echo '<div style="color:#2c3e50; font-size:0.9rem; margin-top:5px; background:rgba(0,0,0,0.05); padding:5px 10px; border-radius:5px; display:inline-block;">
+                                    Base: ₹' . number_format($base_amount, 2);
+                            
+                            if ($refundable > 0) {
+                                echo ' + <span style="color:#0d6efd; font-weight:bold;">Deposit: ₹' . number_format($refundable, 2) . '</span>';
+                            }
+                            
+                            if ($penalty > 0) {
+                                echo ' + <span style="color:#dc3545; font-weight:bold;">Penalty: ₹' . number_format($penalty, 2) . '</span>';
+                            }
+                            
+                            echo '</div>';
                         }
                     } else {
                         echo '<div style="font-weight:bold; font-size:1.5rem; color:#e67e22; margin-top:5px;">To be calculated</div>';

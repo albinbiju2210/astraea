@@ -163,6 +163,7 @@ try {
                   <!-- Spot Register Removed -->
                   <a href="manage_slots.php" class="btn btn-secondary" style="width:auto; padding:12px 24px;">Slot Register</a>
                   <a href="manage_bookings.php" class="btn btn-secondary" style="width:auto; padding:12px 24px;">All Bookings</a>
+                  <a href="admin_refunds.php" class="btn btn-secondary" style="width:auto; padding:12px 24px; background:#fff3cd; color:#856404; border:1px solid #ffeeba;">💸 Refunds</a>
                   <a href="admin_reports.php" class="btn" style="width:auto; padding:12px 24px;">Reports & Logs</a>
               </div>
           </div>

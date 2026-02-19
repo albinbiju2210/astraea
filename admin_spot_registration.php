@@ -233,7 +233,9 @@ if (!isset($_SESSION['admin_lot_id'])) {
 
             <div class="form-group">
                 <label>Vehicle Number</label>
-                <input type="text" name="vehicle_number" class="input" placeholder="e.g. KL-07-AB-1234" required autofocus value="<?php echo htmlspecialchars($_POST['vehicle_number'] ?? ''); ?>">
+                <input type="text" name="vehicle_number" class="input" placeholder="e.g. KL-07-AB-1234" required autofocus 
+                       value="<?php echo htmlspecialchars($_POST['vehicle_number'] ?? ''); ?>"
+                       oninput="this.value = this.value.toUpperCase()" style="text-transform:uppercase;">
             </div>
 
             <div class="form-group" id="phone-group" style="display:none;">
