@@ -138,6 +138,44 @@ try {
     foreach ($top_users_data as $row) {
         fputcsv($output, [$row['name'], $row['email'], $row['booking_count']]);
     }
+    fputcsv($output, []); // Blank line
+
+    // Section 4: Customer Reviews
+    // Fetch reviews for the period
+    $sql = "
+        SELECT r.rating, r.review_text, b.created_at, u.name 
+        FROM reviews r
+        JOIN bookings b ON r.booking_id = b.id
+        JOIN users u ON b.user_id = u.id
+        JOIN parking_slots s ON b.slot_id = s.id
+        WHERE b.created_at BETWEEN ? AND ?
+        $lot_filter
+        ORDER BY r.created_at DESC
+    ";
+    $reviews_stmt = $pdo->prepare($sql);
+    $reviews_stmt->execute($params);
+    $reviews_data = $reviews_stmt->fetchAll();
+
+    if (count($reviews_data) > 0) {
+        fputcsv($output, ['CUSTOMER REVIEWS']);
+        fputcsv($output, ['Date', 'User', 'Rating', 'Comment']);
+        
+        $total_stars = 0;
+        foreach ($reviews_data as $rev) {
+            fputcsv($output, [
+                date('Y-m-d H:i', strtotime($rev['created_at'])),
+                $rev['name'],
+                $rev['rating'] . ' / 5',
+                $rev['review_text']
+            ]);
+            $total_stars += $rev['rating'];
+        }
+        
+        // Add Average Logic to Summary if needed, or just leave as raw list
+        $avg_rating = count($reviews_data) > 0 ? round($total_stars / count($reviews_data), 2) : 0;
+        fputcsv($output, []);
+        fputcsv($output, ['Average Rating for Period', $avg_rating]);
+    }
 
     fclose($output);
     exit;

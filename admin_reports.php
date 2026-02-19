@@ -30,11 +30,52 @@ include 'includes/header.php';
             <div class="msg-error"><?php echo htmlspecialchars($_GET['error']); ?></div>
         <?php endif; ?>
 
+        <!-- Review Summary -->
+        <?php
+        // Fetch Review Stats (Overall)
+        // Adjust for Lot Admin if needed
+        $lot_filter = "";
+        $params = [];
+        if (isset($_SESSION['admin_lot_id']) && $_SESSION['admin_lot_id'] !== null) {
+            $lot_filter = " WHERE s.lot_id = ?";
+            $params[] = $_SESSION['admin_lot_id'];
+        }
+
+        // We need to join bookings to filter by lot
+        $sql = "SELECT AVG(r.rating) as avg_rating, COUNT(r.id) as total_reviews 
+                FROM reviews r 
+                JOIN bookings b ON r.booking_id = b.id 
+                JOIN parking_slots s ON b.slot_id = s.id 
+                $lot_filter";
+        
+        $rv_stmt = $pdo->prepare($sql);
+        $rv_stmt->execute($params);
+        $rv_stats = $rv_stmt->fetch();
+        $avg_rating = is_numeric($rv_stats['avg_rating']) ? round($rv_stats['avg_rating'], 1) : 0;
+        ?>
+
+        <div style="background:var(--bg); border:1px solid #ffeba7; padding:20px; border-radius:var(--radius); margin-bottom:30px; display:flex; gap:20px; align-items:center;">
+             <div style="font-size:3rem; font-weight:bold; color:#ffc107; line-height:1;">
+                 <?php echo $avg_rating; ?>
+             </div>
+             <div>
+                 <h3 style="margin:0;">User Satisfaction Score</h3>
+                 <div style="color:var(--muted);">Based on <?php echo $rv_stats['total_reviews']; ?> reviews</div>
+                 <div style="color:#ffc107; font-size:1.2rem; letter-spacing:2px;">
+                     <?php 
+                     for($i=1; $i<=5; $i++) {
+                         echo ($i <= round($avg_rating)) ? '★' : '☆';
+                     } 
+                     ?>
+                 </div>
+             </div>
+        </div>
+
         <!-- New: Monthly Analysis Report -->
         <div style="background:var(--bg); border:1px solid var(--input-border); padding:20px; border-radius:var(--radius); margin-bottom:30px;">
             <h3 style="margin-bottom:15px;">Monthly Analysis Report</h3>
             <p style="color:var(--muted); margin-bottom:20px;">
-                Generate a detailed CSV analysis including occupancy rates, revenue/penalties, and user activity.
+                Generate a detailed CSV analysis including occupancy rates, revenue, penalties, and <strong style="color:var(--primary);">customer reviews</strong>.
                 <br><strong>Note:</strong> Password authentication is required for data export.
             </p>
             
