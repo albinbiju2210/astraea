@@ -66,92 +66,115 @@ $processed_refunds = $stmt->fetchAll();
 include 'includes/header.php';
 ?>
 
-<div class="page-header">
-    <h2>💸 Refund Management</h2>
-    <div style="color:var(--muted);">Process pending refunds for pre-bookings.</div>
-</div>
-
-<?php if ($msg): ?>
-    <div class="msg-success"><?php echo $msg; ?></div>
-<?php endif; ?>
-
-<?php if ($error): ?>
-    <div class="msg-error"><?php echo $error; ?></div>
-<?php endif; ?>
-
-<div class="card" style="margin-bottom:30px;">
-    <h3 style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">Pending Refunds</h3>
-    
-    <?php if (count($pending_refunds) > 0): ?>
-        <div class="table-responsive">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Booking ID</th>
-                        <th>User</th>
-                        <th>Vehicle</th>
-                        <th>Exit Time</th>
-                        <th>Refund Amount</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($pending_refunds as $r): ?>
-                        <tr>
-                            <td>#<?php echo str_pad($r['id'], 6, '0', STR_PAD_LEFT); ?></td>
-                            <td>
-                                <strong><?php echo htmlspecialchars($r['user_name']); ?></strong><br>
-                                <span style="font-size:0.85rem; color:var(--muted);"><?php echo htmlspecialchars($r['phone']); ?></span>
-                            </td>
-                            <td><?php echo htmlspecialchars($r['vehicle_number']); ?></td>
-                            <td><?php echo date('M d, H:i', strtotime($r['exit_time'])); ?></td>
-                            <td style="color:#28a745; font-weight:bold;">₹<?php echo number_format($r['refundable_amount'], 2); ?></td>
-                            <td>
-                                <form method="post" onsubmit="return confirm('Confirm that you have processed this refund manually?');">
-                                    <input type="hidden" name="action" value="process_refund">
-                                    <input type="hidden" name="booking_id" value="<?php echo $r['id']; ?>">
-                                    <button class="btn btn-sm" style="background:#28a745;">Mark Processed</button>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+<div class="page-center">
+    <div class="card" style="max-width:1000px; width:100%; text-align:left;">
+        <div class="flex-between" style="border-bottom:1px solid #eee; padding-bottom:15px; margin-bottom:20px;">
+            <div>
+                <h2 style="margin-bottom:5px;">💸 Refund Management</h2>
+                <div style="color:var(--muted); font-size:0.9rem;">Process pending refunds for pre-bookings.</div>
+            </div>
+            <a href="admin_home.php" class="small-btn">Dashboard</a>
         </div>
-    <?php else: ?>
-        <p style="text-align:center; padding:20px; color:var(--muted);">No pending refunds.</p>
-    <?php endif; ?>
-</div>
 
-<div class="card">
-    <h3 style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px; color:var(--muted);">Recently Processed</h3>
-    
-    <?php if (count($processed_refunds) > 0): ?>
-        <div class="table-responsive">
-            <table class="table" style="opacity:0.8;">
-                <thead>
-                    <tr>
-                        <th>Booking ID</th>
-                        <th>User</th>
-                        <th>Refund Amount</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($processed_refunds as $r): ?>
-                        <tr>
-                            <td>#<?php echo str_pad($r['id'], 6, '0', STR_PAD_LEFT); ?></td>
-                            <td><?php echo htmlspecialchars($r['user_name']); ?></td>
-                            <td>₹<?php echo number_format($r['refundable_amount'], 2); ?></td>
-                            <td><span class="status-badge status-active" style="background:#d4edda; color:#155724;">Processed</span></td>
+        <?php if ($msg): ?>
+            <div class="msg-success"><?php echo $msg; ?></div>
+        <?php endif; ?>
+
+        <?php if ($error): ?>
+            <div class="msg-error"><?php echo $error; ?></div>
+        <?php endif; ?>
+
+        <h3 style="margin-bottom:15px; color:var(--heading-text); font-size:1.2rem;">Pending Refunds</h3>
+        
+        <?php if (count($pending_refunds) > 0): ?>
+            <div class="table-responsive" style="margin-bottom:30px;">
+                <table class="table" style="width:100%; border-collapse: separate; border-spacing: 0;">
+                    <thead>
+                        <tr style="background:rgba(0,0,0,0.02);">
+                            <th style="padding:12px 15px; border-bottom:2px solid #eee; text-align:left; font-size:0.85rem; text-transform:uppercase; color:var(--muted); letter-spacing:0.5px;">Booking ID</th>
+                            <th style="padding:12px 15px; border-bottom:2px solid #eee; text-align:left; font-size:0.85rem; text-transform:uppercase; color:var(--muted); letter-spacing:0.5px;">User</th>
+                            <th style="padding:12px 15px; border-bottom:2px solid #eee; text-align:left; font-size:0.85rem; text-transform:uppercase; color:var(--muted); letter-spacing:0.5px;">Vehicle</th>
+                            <th style="padding:12px 15px; border-bottom:2px solid #eee; text-align:left; font-size:0.85rem; text-transform:uppercase; color:var(--muted); letter-spacing:0.5px;">Exit Time</th>
+                            <th style="padding:12px 15px; border-bottom:2px solid #eee; text-align:right; font-size:0.85rem; text-transform:uppercase; color:var(--muted); letter-spacing:0.5px;">Refund Amount</th>
+                            <th style="padding:12px 15px; border-bottom:2px solid #eee; text-align:center; font-size:0.85rem; text-transform:uppercase; color:var(--muted); letter-spacing:0.5px; min-width:140px;">Action</th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php else: ?>
-        <p style="text-align:center; padding:20px; color:var(--muted);">No history found.</p>
-    <?php endif; ?>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($pending_refunds as $r): ?>
+                            <tr style="transition:all 0.2s;">
+                                <td style="padding:15px; border-bottom:1px solid #f0f0f0; font-weight:600; color:#333;">
+                                    #<?php echo str_pad($r['id'], 6, '0', STR_PAD_LEFT); ?>
+                                </td>
+                                <td style="padding:15px; border-bottom:1px solid #f0f0f0;">
+                                    <div style="font-weight:600; color:#333;"><?php echo htmlspecialchars($r['user_name']); ?></div>
+                                    <div style="font-size:0.8rem; color:var(--muted); margin-top:2px;"><?php echo htmlspecialchars($r['phone']); ?></div>
+                                </td>
+                                <td style="padding:15px; border-bottom:1px solid #f0f0f0;">
+                                    <span style="background:#e9ecef; padding:4px 8px; border-radius:4px; font-family:monospace; font-weight:bold; letter-spacing:1px;">
+                                        <?php echo htmlspecialchars($r['vehicle_number']); ?>
+                                    </span>
+                                </td>
+                                <td style="padding:15px; border-bottom:1px solid #f0f0f0; white-space:nowrap; color:var(--text);">
+                                    <?php echo date('M d, H:i', strtotime($r['exit_time'])); ?>
+                                </td>
+                                <td style="padding:15px; border-bottom:1px solid #f0f0f0; text-align:right;">
+                                    <span style="color:#28a745; font-weight:700; font-size:1rem;">₹<?php echo number_format($r['refundable_amount'], 2); ?></span>
+                                </td>
+                                <td style="padding:15px; border-bottom:1px solid #f0f0f0; text-align:center;">
+                                    <form method="post" onsubmit="return confirm('Confirm that you have processed this refund manually?');" style="margin:0;">
+                                        <input type="hidden" name="action" value="process_refund">
+                                        <input type="hidden" name="booking_id" value="<?php echo $r['id']; ?>">
+                                        <button class="btn btn-sm" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:6px; font-size:0.85rem; font-weight:500; cursor:pointer; width:100%; white-space:nowrap; transition:background 0.2s;">
+                                            Mark Processed
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <p style="text-align:center; padding:20px; color:var(--muted); background:#f9f9f9; border-radius:8px; margin-bottom:30px;">No pending refunds.</p>
+        <?php endif; ?>
+
+        <h3 style="margin-bottom:15px; color:var(--heading-text); font-size:1.2rem; margin-top:30px; border-top:1px dashed #ddd; padding-top:20px;">Recently Processed</h3>
+        
+        <?php if (count($processed_refunds) > 0): ?>
+            <div class="table-responsive">
+                <table class="table" style="width:100%; border-collapse: separate; border-spacing: 0;">
+                    <thead>
+                        <tr style="background:rgba(0,0,0,0.02);">
+                            <th style="padding:12px 15px; border-bottom:2px solid #eee; text-align:left; font-size:0.85rem; text-transform:uppercase; color:var(--muted); letter-spacing:0.5px;">Booking ID</th>
+                            <th style="padding:12px 15px; border-bottom:2px solid #eee; text-align:left; font-size:0.85rem; text-transform:uppercase; color:var(--muted); letter-spacing:0.5px;">User</th>
+                            <th style="padding:12px 15px; border-bottom:2px solid #eee; text-align:right; font-size:0.85rem; text-transform:uppercase; color:var(--muted); letter-spacing:0.5px;">Refund Amount</th>
+                            <th style="padding:12px 15px; border-bottom:2px solid #eee; text-align:center; font-size:0.85rem; text-transform:uppercase; color:var(--muted); letter-spacing:0.5px;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($processed_refunds as $r): ?>
+                            <tr style="transition:all 0.2s;">
+                                <td style="padding:15px; border-bottom:1px solid #f0f0f0; font-weight:600; color:#333; opacity:0.8;">
+                                    #<?php echo str_pad($r['id'], 6, '0', STR_PAD_LEFT); ?>
+                                </td>
+                                <td style="padding:15px; border-bottom:1px solid #f0f0f0; opacity:0.8;">
+                                    <?php echo htmlspecialchars($r['user_name']); ?>
+                                </td>
+                                <td style="padding:15px; border-bottom:1px solid #f0f0f0; text-align:right; opacity:0.8;">
+                                    ₹<?php echo number_format($r['refundable_amount'], 2); ?>
+                                </td>
+                                <td style="padding:15px; border-bottom:1px solid #f0f0f0; text-align:center;">
+                                    <span class="status-badge status-active" style="background:#d4edda; color:#155724; padding:4px 10px; border-radius:12px; font-size:0.8rem; font-weight:600;">Processed</span>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <p style="text-align:center; padding:20px; color:var(--muted); background:#f9f9f9; border-radius:8px;">No history found.</p>
+        <?php endif; ?>
+    </div>
 </div>
 
 <?php include 'includes/footer.php'; ?>
