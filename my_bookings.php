@@ -60,10 +60,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Fetch Bookings
 $sql = "
-    SELECT b.*, b.access_code, l.name as lot_name, l.address, s.slot_number 
+    SELECT b.*, b.access_code, l.name as lot_name, l.address, s.slot_number, r.rating, r.review_text
     FROM bookings b
     JOIN parking_slots s ON b.slot_id = s.id
     JOIN parking_lots l ON s.lot_id = l.id
+    LEFT JOIN reviews r ON b.id = r.booking_id
     WHERE b.user_id = ?
     ORDER BY b.created_at DESC
 ";
@@ -101,10 +102,15 @@ include 'includes/header.php';
 
         <!-- Queue Status -->
         <?php if ($queue): ?>
-            <div style="background:#e2e3e5; padding:15px; border-radius:var(--radius); margin-bottom:20px; border-left:5px solid #383d41;">
-                <h3>You are in Queue</h3>
-                <p>Waiting for a slot at: <strong><?php echo htmlspecialchars($queue['lot_name']); ?></strong></p>
-                <small>Joined: <?php echo $queue['created_at']; ?></small>
+            <div class="msg-warning" style="text-align:left; background:#fff3cd; color:#856404; padding:15px; border-radius:12px; margin-bottom:20px;">
+                <strong>You are in Queue!</strong><br>
+                Lot: <?php echo htmlspecialchars($queue['lot_name']); ?><br>
+                Position: #<?php echo $queue['position']; ?><br>
+                <form method="post" action="queue_action.php" style="margin-top:10px;">
+                    <input type="hidden" name="action" value="leave_queue">
+                    <input type="hidden" name="queue_id" value="<?php echo $queue['id']; ?>">
+                    <button class="small-btn btn-danger">Leave Queue</button>
+                </form>
             </div>
         <?php endif; ?>
 
@@ -112,50 +118,94 @@ include 'includes/header.php';
         <h3 style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">My Bookings</h3>
         
         <?php if (count($bookings) > 0): ?>
-            <div style="display:grid; gap:15px;">
+            <div style="text-align:left;">
                 <?php foreach ($bookings as $b): ?>
-                    <div style="background:var(--bg); padding:15px; border-radius:var(--radius); border:1px solid var(--input-border); text-align:left;">
+                    <div style="border:1px solid #efefef; padding:20px; border-radius:12px; margin-bottom:15px; background:rgba(255,255,255,0.6);">
+                        <?php 
+                            // Define payment_status for this iteration
+                            $payment_status = $b['payment_status'] ?? 'pending';
+                        ?>
                         <div class="flex-between">
-                            <strong><?php echo htmlspecialchars($b['lot_name']); ?></strong>
-                            <?php 
-                                $is_overdue = ($b['status'] == 'active' && strtotime($b['end_time']) < time());
-                                $penalty = isset($b['penalty']) ? $b['penalty'] : 0;
-                                $payment_status = $b['payment_status'] ?? 'paid'; // Default to paid for old bookings
-                            ?>
-                            
-                            <?php if($is_overdue): ?>
-                                <span style="background:#dc3545; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.8rem; font-weight:bold;">OVERDUE</span>
-                            <?php elseif($b['status']=='active'): ?>
-                                <span style="background:#d4edda; color:#155724; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Active</span>
-                            <?php elseif($b['status']=='cancelled'): ?>
-                                <span style="background:#f8d7da; color:#721c24; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Cancelled</span>
-                            <?php else: ?>
-                                <?php if($payment_status == 'pending' && isset($b['total_amount']) && $b['total_amount'] > 0): ?>
-                                     <span style="background:#ffc107; color:#856404; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Payment Pending</span>
-                                <?php else: ?>
-                                     <span style="background:#e2e3e5; color:#383d41; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Completed</span>
-                                <?php endif; ?>
+                            <div>
+                                <h3 style="margin:0; font-size:1.1rem;"><?php echo htmlspecialchars($b['lot_name']); ?></h3>
+                                <div style="color:var(--muted); font-size:0.9rem;"><?php echo htmlspecialchars($b['address']); ?></div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:1.2rem; font-weight:bold; color:var(--heading-text);">
+                                    Slot: <?php echo htmlspecialchars($b['slot_number']); ?>
+                                </div>
+                                <div style="font-size:0.8rem; color:var(--muted); font-family:monospace;">
+                                    ID: #<?php echo str_pad($b['id'], 6, '0', STR_PAD_LEFT); ?>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top:15px; display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.9rem;">
+                            <div>
+                                <span style="color:var(--muted);">Start Time:</span><br>
+                                <strong><?php echo date('M d, H:i', strtotime($b['start_time'])); ?></strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--muted);">End Time:</span><br>
+                                <strong><?php echo date('M d, H:i', strtotime($b['end_time'])); ?></strong>
+                            </div>
+                            <?php if ($b['exit_time']): ?>
+                                <div>
+                                    <span style="color:var(--muted);">Actual Exit:</span><br>
+                                    <strong><?php echo date('M d, H:i', strtotime($b['exit_time'])); ?></strong>
+                                </div>
+                                <div>
+                                    <span style="color:var(--muted);">Total Paid:</span><br>
+                                    <strong>₹<?php echo number_format($b['total_amount'], 2); ?></strong>
+                                </div>
                             <?php endif; ?>
                         </div>
                         
-                        <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
-                             <div>
-                                <p style="margin:5px 0;">Slot: <strong><?php echo htmlspecialchars($b['slot_number']); ?></strong></p>
-                                <p style="margin:5px 0; font-size:0.9rem; color:var(--muted);">
-                                    <?php echo date('M d, H:i', strtotime($b['start_time'])); ?> - 
-                                    <?php echo date('H:i', strtotime($b['end_time'])); ?>
-                                </p>
-                                <?php if($penalty > 0): ?>
-                                    <p style="margin:5px 0; color:#dc3545; font-weight:bold;">
-                                        Penalty: ₹<?php echo number_format($penalty, 2); ?>
-                                    </p>
+                        <div class="flex-between" style="margin-top:15px; padding-top:15px; border-top:1px dashed #eee;">
+                            <div>
+                                Status: 
+                                <?php if ($b['status'] == 'active'): ?>
+                                    <span style="background:#d4edda; color:#155724; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Active</span>
+                                <?php elseif ($b['status'] == 'cancelled'): ?>
+                                    <span style="background:#f8d7da; color:#721c24; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Cancelled</span>
+                                <?php elseif ($b['status'] == 'completed'): ?>
+                                    <span style="background:#e2e3e5; color:#383d41; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Completed</span>
+                                <?php elseif ($b['status'] == 'reserved'): ?>
+                                    <span style="background:#cce5ff; color:#004085; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Reserved</span>
+                                <?php elseif ($b['status'] == 'pending'): ?>
+                                     <?php 
+                                         // Check Payment Status
+                                         // Assuming payment logic exists elsewhere or linked here
+                                         $payment_status = $b['payment_status'] ?? 'pending';
+                                     ?>
+                                     <?php if($payment_status == 'pending' && isset($b['total_amount']) && $b['total_amount'] > 0): ?>
+                                          <span style="background:#ffc107; color:#856404; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Payment Pending</span>
+                                     <?php else: ?>
+                                          <span style="background:#e2e3e5; color:#383d41; padding:2px 8px; border-radius:4px; font-size:0.8rem;">Completed</span>
+                                     <?php endif; ?>
                                 <?php endif; ?>
-                             </div>
-                             <?php if($b['status']=='active' && $payment_status == 'paid'): ?>
-                                <div style="display:flex; gap:10px;">
-                                    <a href="parking_navigation.php?booking_id=<?php echo $b['id']; ?>" class="small-btn" style="background:#007bff; color:white; border:none; display:inline-block;">3D Navigation</a>
-                                </div>
-                             <?php endif; ?>
+                            </div>
+
+                            <div>
+                                <?php if ($b['status'] == 'active' || $b['status'] == 'reserved'): ?>
+                                    <!-- Vacate Button -->
+                                    <form method="post" onsubmit="return confirm('Are you sure you want to vacate this slot?');" style="display:inline;">
+                                        <input type="hidden" name="action" value="vacate">
+                                        <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
+                                        <button class="small-btn btn-danger">Vacate</button>
+                                    </form>
+                                <?php elseif ($b['status'] == 'pending'): ?>
+                                    <a href="payment.php?booking_id=<?php echo $b['id']; ?>" class="small-btn btn-warning">Pay Now</a>
+                                <?php elseif ($b['status'] == 'completed'): ?>
+                                    <?php if ($b['rating']): ?>
+                                        <span title="<?php echo htmlspecialchars($b['review_text']); ?>" style="cursor:help;">
+                                            <?php echo str_repeat('⭐', $b['rating']); ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <a href="rate_booking.php?booking_id=<?php echo $b['id']; ?>" class="small-btn" style="background:var(--accent-gradient); color:var(--btn-text); border:1px solid #ccc;">⭐ Rate Us</a>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
                         </div>
                         
                         <?php if($b['status']=='active'): ?>
