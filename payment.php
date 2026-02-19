@@ -168,16 +168,25 @@ include 'includes/header.php';
             <div style="text-align:center; margin-bottom:30px;">
                 <div style="font-size:0.9rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Total Payable Amount</div>
                 <?php 
-                    $amount = $booking['total_amount'] ?? 0;
-                    if ($amount > 0) {
-                        echo '<div style="font-weight:800; font-size:2.5rem; color:#2c3e50; margin-top:5px;">₹' . number_format($amount, 2) . '</div>';
+                    $base_amount = $booking['total_amount'] ?? 0;
+                    $penalty = $booking['penalty'] ?? 0;
+                    $total_amount = $base_amount + $penalty;
+                    
+                    if ($total_amount > 0) {
+                        echo '<div style="font-weight:800; font-size:2.5rem; color:#2c3e50; margin-top:5px;">₹' . number_format($total_amount, 2) . '</div>';
+                        
+                        if ($penalty > 0) {
+                            echo '<div style="color:#dc3545; font-size:0.9rem; margin-top:5px;">
+                                    (Base: ₹' . number_format($base_amount, 2) . ' + <span style="font-weight:bold;">Penalty: ₹' . number_format($penalty, 2) . '</span>)
+                                  </div>';
+                        }
                     } else {
                         echo '<div style="font-weight:bold; font-size:1.5rem; color:#e67e22; margin-top:5px;">To be calculated</div>';
                     }
                 ?>
             </div>
 
-            <?php if ($amount > 0): ?>
+            <?php if ($total_amount > 0): ?>
 
             <!-- Tabs -->
             <div class="payment-tabs">
@@ -251,7 +260,7 @@ include 'includes/header.php';
 
                 <!-- Submit Button -->
                 <button type="submit" class="btn" id="pay-btn" style="width:100%; margin-top:20px; background:#22c55e; color:white; border:none; box-shadow:0 4px 15px rgba(34, 197, 94, 0.4);">
-                    Pay ₹<?php echo number_format($amount, 2); ?>
+                    Pay ₹<?php echo number_format($total_amount, 2); ?>
                 </button>
                 
                 <div style="margin-top:20px; font-size:0.8rem; color:var(--muted); text-align:center;">
@@ -310,7 +319,7 @@ include 'includes/header.php';
 
     function validateForm() {
         let isValid = true;
-        const amount = <?php echo $amount; ?>;
+        const amount = <?php echo $total_amount; ?>;
         
         // Reset Errors
         document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');

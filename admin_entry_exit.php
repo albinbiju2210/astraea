@@ -144,9 +144,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $duration_mins = ceil(($exit - $entry) / 60); 
                 $duration_hours = ceil($duration_mins / 60);
 
-                // Pricing Logic (Example: 20 per hour)
-                $RATE_PER_HOUR = 20;
-                $total_amount = $duration_hours * $RATE_PER_HOUR;
+                // Pricing Logic
+                if ($duration_mins <= 5) {
+                    $total_amount = 20.00;
+                } elseif ($duration_hours <= 6) {
+                    $total_amount = $duration_hours * 40.00;
+                } else {
+                    $total_amount = $duration_hours * 100.00;
+                }
 
                 // MARK EXIT
                 // Update end_time to now (closing the indefinite booking)

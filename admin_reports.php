@@ -50,6 +50,52 @@ include 'includes/header.php';
                 <button type="submit" class="btn" style="height:52px; margin:0;">Download CSV</button>
             </form>
         </div>
+
+        <!-- Defaulters / Unpaid Penalties -->
+        <div style="background:var(--bg); border:1px solid #f5c6cb; padding:20px; border-radius:var(--radius); margin-bottom:30px;">
+            <h3 style="margin-bottom:15px; color:#721c24;">⚠️ Unpaid Penalties & Defaulters</h3>
+            <?php
+            // Fetch users with unpaid penalties
+            $defaulters = $pdo->query("
+                SELECT b.id, u.name, u.phone, u.is_blacklisted, b.penalty 
+                FROM bookings b 
+                JOIN users u ON b.user_id = u.id 
+                WHERE b.penalty > 0 AND b.payment_status != 'paid'
+                ORDER BY b.penalty DESC
+            ")->fetchAll();
+            ?>
+            
+            <?php if(count($defaulters) > 0): ?>
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="border-bottom:2px solid #f5c6cb;">
+                            <th style="text-align:left; padding:8px;">User</th>
+                            <th style="text-align:left; padding:8px;">Phone</th>
+                            <th style="text-align:left; padding:8px;">Penalty</th>
+                            <th style="text-align:left; padding:8px;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($defaulters as $d): ?>
+                            <tr style="border-bottom:1px solid #eee;">
+                                <td style="padding:8px;"><?php echo htmlspecialchars($d['name']); ?></td>
+                                <td style="padding:8px;"><?php echo htmlspecialchars($d['phone']); ?></td>
+                                <td style="padding:8px; color:#dc3545; font-weight:bold;">₹<?php echo number_format($d['penalty'], 2); ?></td>
+                                <td style="padding:8px;">
+                                    <?php if($d['is_blacklisted']): ?>
+                                        <span style="background:black; color:white; padding:2px 6px; border-radius:4px; font-size:0.8rem;">BLACKLISTED</span>
+                                    <?php else: ?>
+                                        <span style="color:#856404;">Overdue</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <p style="color:green;">No unpaid penalties found.</p>
+            <?php endif; ?>
+        </div>
         
         <h3 style="border-bottom:1px solid var(--input-border); padding-bottom:10px; margin-bottom:15px;">System Access Logs</h3>
             <thead>
