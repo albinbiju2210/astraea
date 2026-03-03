@@ -1,0 +1,44 @@
+﻿[11:49:48] [INFO] Initializing Chrome WebDriver...
+[11:49:49] [INFO] Starting Test Suite. Target URL: http://localhost/astraea
+[11:49:49] [INFO] Generated Test User: 9997333094 / test_9997333094@astraea.local
+------------------------------------------------------------
+[11:49:49]  [->] Testing Homepage rendering...
+[11:49:50] [PASS] Homepage loaded successfully.
+[11:49:50]  [->] Testing User Registration flow...
+[11:49:51] [PASS] User registered successfully (9997333094).
+[11:49:51]  [->] Testing User Login flow...
+[11:49:52] [PASS] User login successful and redirected to dashboard.
+[11:49:52]  [->] Testing Search & Booking layout rendering...
+[11:50:02] [FAIL] Search/Booking layout test failed:
+Traceback (most recent call last):
+  File "C:\xampp\htdocs\astraea\test_astraea.py", line 117, in test_booking_dashboard
+    search_input = self.wait.until(EC.presence_of_element_located((By.ID, "location-search")))
+  File "C:\Users\User\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\support\wait.py", line 121, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+Symbols not available. Dumping unresolved backtrace:
+	0x7ff6c31aaa55
+	0x7ff6c2f08630
+	0x7ff6c2c9d75d
+	0x7ff6c2cf862e
+	0x7ff6c2cf893c
+	0x7ff6c2d48d87
+	0x7ff6c2d4591c
+	0x7ff6c2ce9098
+	0x7ff6c2ce9f83
+	0x7ff6c31d7810
+	0x7ff6c31d1afd
+	0x7ff6c31f2c1a
+	0x7ff6c2f23345
+	0x7ff6c2f2b81c
+	0x7ff6c2f11924
+	0x7ff6c2f11ad6
+	0x7ff6c2ef7e47
+	0x7ffcf1c4e8d7
+	0x7ffcf30ec40c
+
+
+------------------------------------------------------------
+[11:50:02] [INFO] Test Summary: 3 Passed, 1 Failed.
+[11:50:02] [INFO] Tearing down WebDriver...
