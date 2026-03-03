@@ -300,11 +300,11 @@ include 'includes/header.php';
                         <div class="error-msg" id="upi-error">Please enter a valid UPI ID (e.g. user@okaxis)</div>
                     </div>
                     
-                    <div style="text-align:center; margin:20px 0; color:var(--muted); font-size:0.9rem;">— OR —</div>
-                    
-                    <button type="button" class="btn" onclick="alert('Simulated Deep Link to GPay/PhonePe')" style="background:#f8f9fa; color:#333; border:1px solid #ddd; width:100%; margin-bottom:10px;">
-                        Pay via UPI App (GPay/PhonePe)
-                    </button>
+                    <div style="text-align:center; margin:20px 0;">
+                        <img src="img/upi_qr.png" alt="UPI QR Code" style="max-width:250px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1); margin-bottom:15px;">
+                        <div style="font-weight:bold; font-size:1.1rem; color:var(--text); letter-spacing:0.5px;">albinbiju1022@okicici</div>
+                        <p style="color:var(--muted); font-size:0.85rem; margin-top:5px;">Scan to pay with any UPI app</p>
+                    </div>
                 </div>
 
                 <!-- Card Content -->

@@ -159,12 +159,11 @@ try {
                   <p style="margin:0; color:var(--muted);">Quick links to administrative tools.</p>
               </div>
               <div style="display:flex; gap:15px; flex-wrap:wrap;">
-                  <a href="admin_entry_exit.php" class="btn" style="width:auto; padding:12px 24px; background:var(--primary); box-shadow:0 4px 10px rgba(0,0,0,0.2);">📷 Gate Scanner</a>
-                  <!-- Spot Register Removed -->
-                  <a href="manage_slots.php" class="btn btn-secondary" style="width:auto; padding:12px 24px;">Slot Register</a>
-                  <a href="manage_bookings.php" class="btn btn-secondary" style="width:auto; padding:12px 24px;">All Bookings</a>
-                  <a href="admin_refunds.php" class="btn btn-secondary" style="width:auto; padding:12px 24px; background:#fff3cd; color:#856404; border:1px solid #ffeeba;">💸 Refunds</a>
-                  <a href="admin_reports.php" class="btn" style="width:auto; padding:12px 24px;">Reports & Logs</a>
+                  <a href="admin_entry_exit.php" class="small-btn" style="padding:12px 24px; font-size:1rem; min-width:140px;">📷 Gate Scanner</a>
+                  <a href="manage_slots.php" class="small-btn" style="padding:12px 24px; font-size:1rem; min-width:140px;">Slot Register</a>
+                  <a href="manage_bookings.php" class="small-btn" style="padding:12px 24px; font-size:1rem; min-width:140px;">All Bookings</a>
+                  <a href="admin_refunds.php" class="small-btn" style="padding:12px 24px; font-size:1rem; min-width:140px;">💸 Refunds</a>
+                  <a href="admin_reports.php" class="small-btn" style="padding:12px 24px; font-size:1rem; min-width:140px;">Reports & Logs</a>
               </div>
           </div>
 

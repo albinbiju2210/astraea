@@ -547,14 +547,28 @@ $js_data = [
                     // Start Slot (if occupied by us?)
                     
                     let walkable = (cell.type === 'road' || cell.type === 'entrance' || cell.type === 'exit');
+                    let costMultiplier = 1; // Base cost for roads
                     
                     // Allow moving onto the target slot
                     if (nr === endNode.r && nc === endNode.c) walkable = true;
                     // Allow moving from start slot
                     if (nr === startNode.r && nc === startNode.c) walkable = true;
+                    
+                    // IF it's an empty slot, technically someone could drive through it, 
+                    // but we want to STRONGLY discourage it compared to roads.
+                    if (cell.type === 'slot' && !(nr === endNode.r && nc === endNode.c) && !(nr === startNode.r && nc === startNode.c)) {
+                        let isOccupied = false;
+                        if (cell.slot_id && slotStatusMap[cell.slot_id]) {
+                            isOccupied = slotStatusMap[cell.slot_id].is_occupied;
+                        }
+                        if (!isOccupied) {
+                            walkable = true;
+                            costMultiplier = 50; // Huge penalty for cutting through parking slots
+                        }
+                    }
 
                     if (walkable) {
-                        const newCost = costSoFar[currentKey] + 1;
+                        const newCost = costSoFar[currentKey] + (1 * costMultiplier);
                         if (!(nextKey in costSoFar) || newCost < costSoFar[nextKey]) {
                             costSoFar[nextKey] = newCost;
                             const priority = newCost + (Math.abs(endNode.r - nr) + Math.abs(endNode.c - nc)); // Heuristic
