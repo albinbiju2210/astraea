@@ -8,6 +8,16 @@ if (!isset($_SESSION['admin_id'])) {
     exit;
 }
 
+if (!isset($_SESSION['admin_lot_id']) || $_SESSION['admin_lot_id'] === null) {
+    die("Access Denied: Only Lot Admins can access Spot Registration.");
+}
+
+// Permission Check
+$perms = $_SESSION['admin_permissions'] ?? [];
+if (!in_array('manage_slots', $perms)) {
+    die("Access Denied: You do not have permission to manage slots.");
+}
+
 require 'db.php';
 
 $msg = '';

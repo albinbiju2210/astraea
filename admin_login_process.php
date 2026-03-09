@@ -16,7 +16,7 @@ if ($email === '' || $password === '') {
 }
 
 // fetch user and check is_admin flag
-$stmt = $pdo->prepare("SELECT id, name, password_hash, is_admin, managed_lot_id FROM users WHERE email = ? LIMIT 1");
+$stmt = $pdo->prepare("SELECT id, name, password_hash, is_admin, managed_lot_id, admin_permissions FROM users WHERE email = ? LIMIT 1");
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
@@ -41,6 +41,15 @@ session_regenerate_id(true);
 $_SESSION['admin_id'] = $user['id'];
 $_SESSION['admin_name'] = $user['name'];
 $_SESSION['admin_lot_id'] = $user['managed_lot_id']; // NULL for Super Admin, Int for Lot Admin
+
+// Parse and store permissions
+if ($user['managed_lot_id'] === null) {
+    // Super Admin gets all permissions implicitly
+    $_SESSION['admin_permissions'] = ['gate_scanner', 'manage_slots', 'manage_bookings', 'manage_refunds', 'view_reports'];
+} else {
+    // Lot Admin gets specific permissions
+    $_SESSION['admin_permissions'] = json_decode($user['admin_permissions'] ?? '[]', true) ?: [];
+}
 
 header('Location: admin_home.php');
 exit;

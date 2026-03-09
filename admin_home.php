@@ -107,6 +107,8 @@ try {
       <!-- Dashboard Grid -->
       <div class="dashboard-grid">
           
+          <?php $is_super_metrics = (!isset($_SESSION['admin_lot_id']) || $_SESSION['admin_lot_id'] === null); ?>
+          <?php if ($is_super_metrics): ?>
           <!-- Stat Cards -->
           <div class="stat-card">
               <div>
@@ -151,6 +153,7 @@ try {
               </div>
               <a href="manage_lots.php" class="link" style="margin-top:10px; display:inline-block;">Manage Structure &rarr;</a>
           </div>
+          <?php endif; ?>
 
           <!-- System Actions Row -->
           <div style="grid-column: 1 / -1; display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding:0 10px; flex-wrap:wrap; gap:20px;">
@@ -158,12 +161,34 @@ try {
                   <h3 style="margin:0 0 5px 0;">System Actions</h3>
                   <p style="margin:0; color:var(--muted);">Quick links to administrative tools.</p>
               </div>
+              <?php 
+              $perms = $_SESSION['admin_permissions'] ?? []; 
+              $is_super = (!isset($_SESSION['admin_lot_id']) || $_SESSION['admin_lot_id'] === null);
+              ?>
               <div style="display:flex; gap:15px; flex-wrap:wrap;">
+                  <?php if ($is_super || in_array('gate_scanner', $perms)): $has_buttons = true; ?>
                   <a href="admin_entry_exit.php" class="small-btn" style="padding:12px 24px; font-size:1rem; min-width:140px;">📷 Gate Scanner</a>
+                  <?php endif; ?>
+                  
+                  <?php if (!$is_super && in_array('manage_slots', $perms)): $has_buttons = true; ?>
                   <a href="manage_slots.php" class="small-btn" style="padding:12px 24px; font-size:1rem; min-width:140px;">Slot Register</a>
+                  <?php endif; ?>
+                  
+                  <?php if ($is_super || in_array('manage_bookings', $perms)): $has_buttons = true; ?>
                   <a href="manage_bookings.php" class="small-btn" style="padding:12px 24px; font-size:1rem; min-width:140px;">All Bookings</a>
+                  <?php endif; ?>
+                  
+                  <?php if ($is_super || in_array('manage_refunds', $perms)): $has_buttons = true; ?>
                   <a href="admin_refunds.php" class="small-btn" style="padding:12px 24px; font-size:1rem; min-width:140px;">💸 Refunds</a>
+                  <?php endif; ?>
+                  
+                  <?php if ($is_super || in_array('view_reports', $perms)): $has_buttons = true; ?>
                   <a href="admin_reports.php" class="small-btn" style="padding:12px 24px; font-size:1rem; min-width:140px;">Reports & Logs</a>
+                  <?php endif; ?>
+                  
+                  <?php if (!isset($has_buttons)): ?>
+                      <p style="color:var(--muted); padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; width:100%;">You currently do not have permission to access any system actions. Please contact your Super Admin to adjust your roles.</p>
+                  <?php endif; ?>
               </div>
           </div>
 

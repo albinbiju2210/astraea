@@ -8,6 +8,13 @@ if (!isset($_SESSION['admin_id'])) {
     exit;
 }
 
+// Permission Check
+$perms = $_SESSION['admin_permissions'] ?? [];
+$is_super = (!isset($_SESSION['admin_lot_id']) || $_SESSION['admin_lot_id'] === null);
+if (!$is_super && !in_array('manage_refunds', $perms)) {
+    die("Access Denied: You do not have permission to manage refunds.");
+}
+
 require 'db.php';
 
 $msg = '';

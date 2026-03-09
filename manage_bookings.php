@@ -9,6 +9,14 @@ if (!isset($_SESSION['admin_id'])) {
     header('Location: admin_login.php');
     exit;
 }
+
+// Permission Check
+$perms = $_SESSION['admin_permissions'] ?? [];
+$is_super = (!isset($_SESSION['admin_lot_id']) || $_SESSION['admin_lot_id'] === null);
+if (!$is_super && !in_array('manage_bookings', $perms)) {
+    die("Access Denied: You do not have permission to view or manage bookings.");
+}
+
 require 'db.php';
 
 // Handle Cancel
