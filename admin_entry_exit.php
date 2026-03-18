@@ -77,9 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // End time +5 years for indefinite
             $end_time = date('Y-m-d H:i:s', strtotime("+5 years")); 
 
-            $stmt = $pdo->prepare("INSERT INTO bookings (user_id, lot_id, slot_id, start_time, end_time, access_code, status, entry_time) VALUES (?, ?, ?, ?, ?, ?, 'active', ?)");
+            $stmt = $pdo->prepare("INSERT INTO bookings (user_id, lot_id, slot_id, start_time, end_time, access_code, status, entry_time, vehicle_number) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)");
             $access_code = strtoupper(substr(md5(uniqid(rand(), true)), 0, 6)); // Temp code
-            $stmt->execute([$user_id, $lot_id, $slot['id'], $start_time, $end_time, $access_code, $start_time]);
+            $stmt->execute([$user_id, $lot_id, $slot['id'], $start_time, $end_time, $access_code, $start_time, $vehicle_number]);
 
             // 4. Mark Slot Occupied
             $pdo->prepare("UPDATE parking_slots SET is_occupied = 1 WHERE id = ?")->execute([$slot['id']]);
@@ -456,6 +456,10 @@ include 'includes/header.php';
                 const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-positive-notification-951.mp3');
                 audio.play();
             </script>
+        <?php endif; ?>
+
+        <?php if ($msg): ?>
+            <div class="msg-success" style="font-size:1.1rem; padding:15px; margin-bottom:20px;"><?php echo htmlspecialchars($msg); ?></div>
         <?php endif; ?>
 
         <?php if ($error): ?>

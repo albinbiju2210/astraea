@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "c:\xampp\htdocs\astraea\test_astraea_4.py", line 109, in test_gate_entry_exit
+    self.wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Payment Confirmed')]")))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\AppData\Roaming\Python\Python313\site-packages\selenium\webdriver\support\wait.py", line 121, in until
+    raise TimeoutException(message, screen, stacktrace)
+selenium.common.exceptions.TimeoutException: Message: 
+Stacktrace:
+	chromedriver!GetHandleVerifier [0x7ff7076f10a5+14cc5]
+	chromedriver!GetHandleVerifier [0x7ff7076f1110+14d30]
+	chromedriver!(No symbol) [0x7ff70745db6d]
+	chromedriver!(No symbol) [0x7ff7074b7082]
+	chromedriver!(No symbol) [0x7ff7074b738c]
+	chromedriver!(No symbol) [0x7ff7075073f7]
+	chromedriver!(No symbol) [0x7ff707503f7b]
+	chromedriver!(No symbol) [0x7ff7074a96e8]
+	chromedriver!(No symbol) [0x7ff7074aa5d3]
+	chromedriver!GetHandleVerifier [0x7ff7079f5ddd+3199fd]
+	chromedriver!GetHandleVerifier [0x7ff7079f04bd+3140dd]
+	chromedriver!GetHandleVerifier [0x7ff707a129ba+3365da]
+	chromedriver!GetHandleVerifier [0x7ff70770ca45+30665]
+	chromedriver!GetHandleVerifier [0x7ff707715b9c+397bc]
+	chromedriver!GetHandleVerifier [0x7ff7076fa4c4+1e0e4]
+	chromedriver!GetHandleVerifier [0x7ff7076fa676+1e296]
+	chromedriver!GetHandleVerifier [0x7ff7076def87+2ba7]
+	KERNEL32!BaseThreadInitThunk [0x7fffaa59e8d7+17]
+	ntdll!RtlUserThreadStart [0x7fffab20c48c+2c]
+

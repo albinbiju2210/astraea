@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 BASE_URL = "http://localhost/astraea"
 
-class AstraeaTester:
+class RegistrationTester:
     def __init__(self):
         self.log("INFO", "Initializing Chrome WebDriver...")
         options = webdriver.ChromeOptions()
@@ -26,10 +26,6 @@ class AstraeaTester:
         self.test_password = "password123"
         self.test_name = "Auto Tester"
         
-        # Fixed admin credentials (assumes default setup)
-        self.admin_email = "admin@astraea.com"
-        self.admin_password = "admin"
-        
         self.passed = 0
         self.failed = 0
 
@@ -43,16 +39,13 @@ class AstraeaTester:
             self.passed += 1
 
     def run_tests(self):
-        self.log("INFO", f"Starting Test Suite. Target URL: {BASE_URL}")
+        self.log("INFO", f"Starting Registration Test Suite. Target URL: {BASE_URL}")
         self.log("INFO", f"Generated Test User: {self.test_phone} / {self.test_email}")
         print("-" * 60)
         
         try:
             self.test_homepage()
             self.test_registration()
-            self.test_user_login()
-            self.test_booking_dashboard()
-            # self.test_admin_login() # Uncomment and configure self.admin_email to test admin mode
         except Exception as e:
             self.log("ERROR", f"CRITICAL SUITE FAILURE: {str(e)}")
             
@@ -90,68 +83,6 @@ class AstraeaTester:
         except Exception as e:
             self.log("ERROR", f"Registration test failed:\n{traceback.format_exc()}")
 
-    def test_user_login(self):
-        self.log("STEP", "Testing User Login flow...")
-        try:
-            self.driver.get(f"{BASE_URL}/index.php")
-            
-            # Use Email login (default visible tab)
-            email_input = self.wait.until(EC.element_to_be_clickable((By.NAME, "email")))
-            email_input.send_keys(self.test_email)
-            self.driver.find_element(By.NAME, "password").send_keys(self.test_password)
-            
-            self.driver.find_element(By.XPATH, "//button[@type='submit']").click()
-            
-            # Expected to redirect to home.php on success
-            self.wait.until(EC.url_contains("home.php"))
-            self.log("SUCCESS", "User login successful and redirected to dashboard.")
-        except Exception as e:
-            self.log("ERROR", f"User login test failed:\n{traceback.format_exc()}")
-
-    def test_booking_dashboard(self):
-        self.log("STEP", "Testing Search & Booking layout rendering...")
-        try:
-            # Assumes user is already logged in from previous test
-            self.driver.get(f"{BASE_URL}/booking.php")
-            
-            # Step 1: Click the first parking lot
-            lot_link = self.wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, 'lot_id')]")))
-            lot_link.click()
-            
-            # Step 2: Enter vehicle number and click check availability
-            v_input = self.wait.until(EC.presence_of_element_located((By.NAME, "vehicle_number")))
-            v_input.clear()
-            v_input.send_keys("KL-TEST-123")
-            self.driver.find_element(By.XPATH, "//button[contains(text(), 'Check Availability')]").click()
-            
-            # Step 3: Wait for map to load (look for an OPEN slot button or the Change button)
-            self.wait.until(EC.presence_of_element_located((By.XPATH, "//a[contains(text(), 'Change')]")))
-            self.log("SUCCESS", "Booking steps rendered successfully up to the map view.")
-                
-        except Exception as e:
-            self.log("ERROR", f"Search/Booking layout test failed:\n{traceback.format_exc()}")
-
-    def test_admin_login(self):
-        self.log("STEP", "Testing Admin Login flow...")
-        try:
-            # Logout user first by hitting logout endpoint
-            self.driver.get(f"{BASE_URL}/logout.php")
-            
-            self.driver.get(f"{BASE_URL}/admin_login.php")
-            
-            email_input = self.wait.until(EC.presence_of_element_located((By.NAME, "email")))
-            email_input.send_keys(self.admin_email)
-            self.driver.find_element(By.NAME, "password").send_keys(self.admin_password)
-            
-            self.driver.find_element(By.XPATH, "//button[@type='submit']").click()
-            
-            # Expected to redirect to admin_home.php on success
-            self.wait.until(EC.url_contains("admin_home.php"))
-            self.log("SUCCESS", "Admin login successful and redirected to admin dashboard.")
-            
-        except Exception as e:
-            self.log("ERROR", f"Admin login test failed:\n{traceback.format_exc()}")
-
     def teardown(self):
         self.log("INFO", "Tearing down WebDriver...")
         try:
@@ -160,7 +91,7 @@ class AstraeaTester:
             pass
 
 if __name__ == "__main__":
-    tester = AstraeaTester()
+    tester = RegistrationTester()
     try:
         tester.run_tests()
     finally:
