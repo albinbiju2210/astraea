@@ -45,15 +45,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Update Booking to Paid
     // We do NOT set status='active' because if it was 'completed' (exit), it should stay completed.
-    // Update Booking to Paid & Active
-    // Only update status to 'active' if it is currently 'pending'. 
+    // Update Booking to Paid & Reserved
+    // Only update status to 'reserved' if it is currently 'pending'. 
     // If it's already 'active' or 'completed', leave it alone.
     // 1. Mark as Paid
     $stmt = $pdo->prepare("UPDATE bookings SET payment_status = 'paid' WHERE id = ?");
     $stmt->execute([$booking_id]);
     
-    // 2. Activate Booking (if it was pending)
-    $stmt = $pdo->prepare("UPDATE bookings SET status = 'active' WHERE id = ? AND status = 'pending'");
+    // 2. Reserve Booking (if it was pending)
+    $stmt = $pdo->prepare("UPDATE bookings SET status = 'reserved' WHERE id = ? AND status = 'pending'");
     $stmt->execute([$booking_id]);
     
     // Redirect to Success/My Bookings

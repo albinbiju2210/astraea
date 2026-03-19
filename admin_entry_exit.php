@@ -131,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             JOIN users u ON b.user_id = u.id
             JOIN parking_slots s ON b.slot_id = s.id
             JOIN parking_lots l ON s.lot_id = l.id
-            WHERE (b.access_code = ? OR (b.vehicle_number = ? AND b.status = 'active'))
+            WHERE (b.access_code = ? OR (b.vehicle_number = ? AND b.status IN ('active', 'reserved')))
             LIMIT 1
         ");
         $stmt->execute([$input, $input]);
@@ -157,8 +157,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // If entry_time exists, it's Exit.
             
             if (empty($booking['entry_time'])) {
-                // MARK ENTRY
-                $update = $pdo->prepare("UPDATE bookings SET entry_time = NOW() WHERE id = ?");
+                // MARK ENTRY AND ACTIVATE STATUS
+                $update = $pdo->prepare("UPDATE bookings SET entry_time = NOW(), status = 'active' WHERE id = ?");
                 $update->execute([$booking['id']]);
                 
                 // IMPORTANT: Mark slot as PHYSICALLY OCCUPIED now
