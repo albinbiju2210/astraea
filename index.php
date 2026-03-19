@@ -117,21 +117,14 @@ include __DIR__ . '/includes/header.php';
       
       <!-- Google Sign In (GSI) -->
       <!-- We use a wrapper to center and ensure spacing -->
-      <div style="margin-bottom: 15px; display:flex; justify-content:center; width:100%;">
+      <div style="margin-bottom: 15px; display:flex; justify-content:center; width:100%; overflow:hidden;">
           <div id="g_id_onload"
                data-client_id="716872942450-u04luilu4ihudm0lffqna22mo9hlo3a7.apps.googleusercontent.com"
                data-callback="handleCredentialResponse"
                data-auto_prompt="false">
           </div>
-          <div class="g_id_signin" 
-               data-type="standard" 
-               data-shape="pill" 
-               data-theme="outline" 
-               data-text="sign_in_with"
-               data-size="large"
-               data-logo_alignment="left"
-               data-width="380"> <!-- Match approx card width -->
-          </div>
+          <!-- The button is rendered dynamically via JS to match width -->
+          <div id="google-btn-wrapper"></div>
       </div>
 
       <!-- Admin Login as a secondary full-width button -->
@@ -152,6 +145,28 @@ include __DIR__ . '/includes/header.php';
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
+    // Wait for the window to load so we can measure the exact width of other buttons
+    window.addEventListener('load', function() {
+        // Find the main Login button to match its width
+        var loginBtn = document.querySelector('button[type="submit"]');
+        var btnWidth = loginBtn ? loginBtn.offsetWidth : 300;
+        
+        // Dynamically render the Google button to match the width exactly
+        if (window.google) {
+            google.accounts.id.renderButton(
+                document.getElementById("google-btn-wrapper"),
+                { 
+                    theme: "outline", 
+                    size: "large", 
+                    type: "standard",
+                    shape: "pill",
+                    logo_alignment: "left",
+                    width: btnWidth 
+                }
+            );
+        }
+    });
+
     function handleCredentialResponse(response) {
         // Send the ID token to your server
         fetch('google_login_process.php', {
